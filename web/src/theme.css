@@ -1,0 +1,38 @@
+/* Cortexi "Hyper Electric" theme — dark (default) + light */
+:root {
+  color-scheme: dark;
+  --bg: #0A0A0E;            /* Deep Obsidian */
+  --surface: #14141B;       /* Zinc Carbon */
+  --border: #272733;        /* Subtle Graphite */
+  --input-bg: #0F0F15;
+  --text: #F4F4F6;          /* Pure Ivory */
+  --text2: #8E8E9E;         /* Muted Silver */
+  --violet: #7C3AED;        /* Hyper Violet */
+  --indigo: #6366F1;
+  --amber: #F59E0B;         /* Neon Amber */
+  --emerald: #10B981;       /* Emerald Glow */
+  --gradient-btn: linear-gradient(135deg, #7C3AED, #6366F1);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #F4F4F7;
+  --surface: #FFFFFF;
+  --border: #E2E2EA;
+  --input-bg: #F9F9FB;
+  --text: #14141B;
+  --text2: #5C5C6E;
+  --violet: #7C3AED;
+  --indigo: #6366F1;
+  --amber: #D97706;
+  --emerald: #059669;
+  --gradient-btn: linear-gradient(135deg, #7C3AED, #6366F1);
+  --shadow-card: 0 4px 24px rgba(20, 20, 27, 0.08);
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  transition: background 0.2s ease;
+}

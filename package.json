@@ -1,0 +1,22 @@
+{
+  "name": "cortexi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Free AI video generator - brand, explainer and intro videos",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "pnpm --parallel --filter @cortexi/server --filter @cortexi/web dev",
+    "dev:server": "pnpm --filter @cortexi/server dev",
+    "dev:web": "pnpm --filter @cortexi/web dev",
+    "build": "pnpm --filter @cortexi/web build",
+    "start": "pnpm --filter @cortexi/server start",
+    "test": "pnpm --filter @cortexi/server test",
+    "typecheck": "pnpm --filter @cortexi/server typecheck && pnpm --filter @cortexi/web exec tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
