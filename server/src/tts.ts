@@ -19,7 +19,7 @@ export async function probeDuration(file: string): Promise<number> {
   return parseFloat(stdout.trim());
 }
 
-/** Generate per-scene voiceover with edge-tts; fills audioFile, words, durationSec. */
+/** Generate per-scene voiceover with Kokoro; fills audioFile, words, durationSec. */
 export async function generateVoiceover(sb: Storyboard): Promise<Storyboard> {
   if (sb.voice.engine === 'none') {
     // Give scenes sensible default durations based on text length.
@@ -36,12 +36,25 @@ export async function generateVoiceover(sb: Storyboard): Promise<Storyboard> {
     const mp3 = path.join(AUDIO_DIR, `${scene.id}.mp3`);
     const vtt = path.join(AUDIO_DIR, `${scene.id}.vtt`);
     try {
-      await run('edge-tts', [
-        '--voice', sb.voice.voice,
-        '--text', text,
-        '--write-media', mp3,
-        '--write-subtitles', vtt,
-      ]);
+      if (sb.voice.engine === 'edge-tts') {
+        await run('edge-tts', ['--voice', sb.voice.voice, '--text', text, '--write-media', mp3, '--write-subtitles', vtt]);
+      } else {
+        // Piper/Kokoro emit WAV; convert to MP3 so every engine yields the same asset type.
+        const wav = mp3.replace(/\.mp3$/, '.wav');
+        const isKokoro = sb.voice.engine === 'kokoro';
+        const script = path.resolve(process.cwd(), `server/scripts/${isKokoro ? 'kokoro' : 'piper'}_tts.py`);
+        if (isKokoro) {
+          await run('python', [script, text, sb.voice.voice, mp3]);
+        } else {
+          await run('python', [script, text, sb.voice.voice, wav]);
+          await run('ffmpeg', ['-y', '-i', wav, '-codec:a', 'libmp3lame', '-q:a', '4', mp3]);
+        }
+        const durationSec = await probeDuration(mp3);
+        const tokens = text.split(/\s+/).filter(Boolean);
+        const words = tokens.map((word, i) => ({ word, start: (i / tokens.length) * durationSec, end: ((i + 1) / tokens.length) * durationSec }));
+        scenes.push({ ...scene, audioFile: `audio/${scene.id}.mp3`, durationSec: Math.max(1.5, durationSec + 0.3), words });
+        continue;
+      }
       const words = parseVtt(await readFile(vtt, 'utf-8'));
       const durationSec = await probeDuration(mp3);
       scenes.push({

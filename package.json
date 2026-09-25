@@ -14,9 +14,14 @@
     "build": "pnpm --filter @cortexi/web build",
     "start": "pnpm --filter @cortexi/server start",
     "test": "pnpm --filter @cortexi/server test",
-    "typecheck": "pnpm --filter @cortexi/server typecheck && pnpm --filter @cortexi/web exec tsc --noEmit"
+    "typecheck": "pnpm --filter @cortexi/server typecheck && pnpm --filter @cortexi/web exec tsc --noEmit",
+    "lint": "oxlint server/src server/remotion web/src",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "oxlint": "1.85.0"
   }
 }

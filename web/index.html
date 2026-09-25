@@ -3,32 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cortexi — AI Video Generator</title>
-    <meta name="description" content="Cortexi — free, local-first AI video generator. Prompt to storyboard, voiceover, captions and rendered MP4." />
+    <title>Cortexi — AI Video Studio</title>
+    <meta name="description" content="Local-first AI video studio: prompt to storyboard, neural voiceover, synchronized captions, and hardware-rendered MP4." />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/jpeg" href="/logo.jpeg" />
     <link rel="apple-touch-icon" href="/logo.jpeg" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Cortexi — AI Video Generator" />
-    <meta property="og:description" content="Free, local-first AI video generator: prompt → storyboard → voiceover → MP4." />
+    <meta property="og:title" content="Cortexi — AI Video Studio" />
+    <meta property="og:description" content="Local-first AI video studio: prompt → storyboard → voiceover → MP4." />
     <meta property="og:image" content="/logo.jpeg" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:image" content="/logo.jpeg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <style>
-      /* Pre-paint loading splash (replaced when React mounts) */
-      .splash { text-align: center; font-family: system-ui, sans-serif; color: #8e8e9e; background: #0A0A0E; position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
-      .splash img { width: 96px; height: 96px; border-radius: 24px; animation: pulse 1.6s ease-in-out infinite; }
-      .splash span { letter-spacing: 0.2em; text-transform: uppercase; font-size: 12px; }
-      @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.96); } }
+      /* Pre-paint loading splash */
+      .splash { text-align: center; font-family: 'Space Grotesk', -apple-system, sans-serif; color: #8E8E9E; background: #0A0A0E; position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+      .splash img { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 8px 32px rgba(124, 58, 237, 0.25); animation: pulse 1.6s ease-in-out infinite; }
+      .splash span { letter-spacing: 0.16em; text-transform: uppercase; font-size: 11px; font-weight: 600; }
+      @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(0.97); } }
     </style>
   </head>
   <body>
     <div id="root">
       <div class="splash">
         <img src="/logo.jpeg" alt="Cortexi logo" />
-        <span>Loading Cortexi…</span>
+        <span>Initializing Cortexi Studio…</span>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+

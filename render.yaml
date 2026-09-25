@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: cortexi-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8787
+      - key: CORTEXI_ENABLE_SERVER_RENDER
+        value: "0"
+      - key: CORTEXI_WEB_ORIGIN
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: CORTEXI_HF_MODEL
+        value: Qwen/Qwen2.5-1.5B-Instruct
+      - key: CORTEXI_HF_INFERENCE_URL
+        value: https://router.huggingface.co/v1/chat/completions
+      - key: PIPER_VOICES
+        value: en_US-amy-medium,en_US-ryan-medium,en_GB-alan-medium,en_GB-jenny-diode
+      - key: KOKORO_VOICES
+        value: af_heart,af_bella,am_michael,bf_emma,bm_george,af_nicole,am_adam,bf_isabella,bm_fable,af_sarah,am_musk
+      - key: EDGE_TTS_VOICES
+        value: en-US-AriaNeural,en-US-GuyNeural,en-US-JennyNeural,en-GB-SoniaNeural,en-AU-NatashaNeural,en-IN-NeerjaNeural

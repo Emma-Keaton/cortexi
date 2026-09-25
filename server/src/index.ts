@@ -3,6 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { mkdir, writeFile, readdir, unlink, stat } from 'node:fs/promises';
+import { readdirSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -28,10 +29,22 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5173',
   `http://localhost:${port}`,
   `http://127.0.0.1:${port}`,
+  ...(process.env.CORTEXI_WEB_ORIGIN?.split(',').map((v) => v.trim()).filter(Boolean) ?? []),
 ]);
 app.use('/api/*', cors({
   origin: (o) => (o && allowedOrigins.has(o) ? o : null),
 }));
+
+// Basic shared-capacity guard: production deployments should back this with Redis.
+const daily = new Map<string, { day: string; count: number }>();
+app.use('/api/*', async (c, next) => {
+  const key = c.req.header('x-device-id') ?? c.req.header('user-agent') ?? 'anonymous';
+  const day = new Date().toISOString().slice(0, 10); const current = daily.get(key);
+  if (current?.day !== day) daily.set(key, { day, count: 1 });
+  else if (current.count >= 120) return c.json({ error: 'Daily free limit reached. Bring your own API key or try tomorrow.' }, 429);
+  else current.count += 1;
+  await next();
+});
 
 app.get('/api/health', (c) => c.json({ ok: true, time: Date.now() }));
 
@@ -46,12 +59,18 @@ app.put('/api/settings', async (c) => {
   }
 });
 
-app.get('/api/voices', (c) =>
-  c.json([
-    'en-US-AriaNeural', 'en-US-GuyNeural', 'en-US-JennyNeural',
-    'en-GB-SoniaNeural', 'en-AU-NatashaNeural', 'en-IN-NeerjaNeural',
-  ])
-);
+app.get('/api/voices', (c) => {
+  const list = (raw?: string) => (raw ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+  const piper = list(process.env.PIPER_VOICES);
+  const kokoro = list(process.env.KOKORO_VOICES);
+  const edge = list(process.env.EDGE_TTS_VOICES ?? 'en-US-AriaNeural,en-US-GuyNeural,en-US-JennyNeural,en-GB-SoniaNeural,en-AU-NatashaNeural,en-IN-NeerjaNeural');
+  const combined = [
+    ...piper.map((id) => ({ engine: 'piper', id })),
+    ...kokoro.map((id) => ({ engine: 'kokoro', id })),
+    ...edge.map((id) => ({ engine: 'edge-tts', id })),
+  ];
+  return c.json({ piper, kokoro, edge, combined });
+});
 
 // 1. Prompt -> storyboard JSON
 app.post('/api/plan', async (c) => {
@@ -61,7 +80,11 @@ app.post('/api/plan', async (c) => {
     aspect: body.aspect ?? '16:9',
     // Browser-supplied key wins; otherwise fall back to server env (never logged).
     apiKey: (body.apiKey as string) || process.env.CORTEXI_GROQ_KEY || process.env.CORTEXI_GEMINI_KEY || undefined,
-    provider: body.provider ?? 'groq',
+    // Leave provider undefined when the client did not choose one, so the LLM
+    // layer can fall back to the configured shared provider (HF Router).
+    provider: body.provider as 'groq' | 'gemini' | 'huggingface' | undefined,
+    brandAssets: Array.isArray(body.brandAssets) ? body.brandAssets : [],
+    brandStyle: body.brandStyle ?? undefined,
   });
   return c.json(sb);
 });
@@ -90,12 +113,81 @@ app.post('/api/upload', async (c) => {
   return c.json({ path: `uploads/${name}` });
 });
 
-// 3. Storyboard -> render job
+// Local product cutout. The Python helper uses rembg with a locally cached U2Net model.
+app.post('/api/cutout', async (c) => {
+  const body = await c.req.json();
+  const relative = String(body.path ?? '');
+  const source = path.resolve(ASSETS_DIR, relative);
+  if (!source.startsWith(path.resolve(ASSETS_DIR)) || !existsSync(source)) return c.json({ error: 'Source asset not found' }, 400);
+  const output = path.join(UPLOAD_DIR, `${randomUUID().slice(0, 8)}-cutout.png`);
+  const script = path.resolve(process.cwd(), 'server/scripts/remove_background.py');
+  try {
+    const { stdout } = await execFileP('python', [script, source, output], { timeout: 10 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
+    return c.json({ path: `uploads/${path.basename(output)}`, model: 'u2net', output: String(stdout).trim() });
+  } catch (e) {
+    const error = e as { stderr?: string; message: string };
+    return c.json({ error: `Local rembg failed: ${error.stderr || error.message}` }, 500);
+  }
+});
+
+// Common roots for POSIX systems.
+function tryListRoots(): string[] {
+  return ['/', '/home', '/Users', '/mnt', '/media'].filter(existsSync);
+}
+
+// Folder browser for the export-destination picker. Works on any device because
+// the listing happens server-side (browsers never expose absolute paths to JS).
+const isWin = process.platform === 'win32';
+app.get('/api/folders', (c) => {
+  const raw = c.req.query('path');
+  const tryList = (dir: string) => {
+    const entries = readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith('$'))
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const parent = path.resolve(dir, '..');
+    return c.json({
+      path: dir,
+      parent: parent === dir ? null : parent,
+      dirs: entries,
+    });
+  };
+  try {
+    if (!raw) {
+      if (isWin) {
+        const drives: string[] = [];
+        for (let i = 65; i <= 90; i++) {
+          const d = `${String.fromCharCode(i)}:\\`;
+          if (existsSync(d)) drives.push(d);
+        }
+        return c.json({ path: null, parent: null, dirs: drives });
+      }
+      return c.json({ path: '/', parent: null, dirs: tryListRoots() });
+    }
+    const dir = path.resolve(raw);
+    if (!existsSync(dir)) return c.json({ error: 'path not found' }, 404);
+    return tryList(dir);
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 403);
+  }
+});
+
+// 3. Storyboard -> render job (LOCAL DESKTOP ONLY).
+// On hosted deployments video encoding happens in the user's browser, so the
+// Remotion/Chromium path is disabled unless CORTEXI_ENABLE_SERVER_RENDER=1.
+const serverRenderEnabled = process.env.CORTEXI_ENABLE_SERVER_RENDER === '1';
+
 app.post('/api/render', async (c) => {
+  if (!serverRenderEnabled) {
+    return c.json({
+      error: 'Server rendering is disabled in this deployment. Cortexi renders on your device instead.',
+      renderMode: 'browser',
+    }, 409);
+  }
   const body = await c.req.json();
   const sb = StoryboardSchema.parse(body.storyboard);
   const job = enqueueRender(sb, body.quality === 'final' ? 'final' : 'draft');
-  return c.json({ jobId: job.id });
+  return c.json({ jobId: job.id, renderMode: 'server' });
 });
 
 app.get('/api/jobs/:id', (c) => {

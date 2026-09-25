@@ -1,5 +1,5 @@
-/**
- * Cortexi unit tests — run with: pnpm test  (tsx tests/run-tests.ts)
+﻿/**
+ * Cortexi unit tests â€” run with: pnpm test  (tsx tests/run-tests.ts)
  * Covers: settings validation, VTT parsing, offline storyboard fallback, draft scaling.
  * Optional live API smoke: CORTEXI_TEST_LIVE=1 (server must be running).
  */
@@ -12,10 +12,10 @@ let failures = 0;
 const test = async (name: string, fn: () => Promise<void> | void) => {
   try {
     await fn();
-    console.log(`  ✓ ${name}`);
+    console.log(`  âœ“ ${name}`);
   } catch (e) {
     failures++;
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`);
+    console.error(`  âœ— ${name}\n    ${(e as Error).message}`);
   }
 };
 
@@ -23,7 +23,7 @@ const test = async (name: string, fn: () => Promise<void> | void) => {
 process.env.CORTEXI_SETTINGS_FILE = path.join(os.tmpdir(), `cortexi-test-settings-${Date.now()}.json`);
 const { saveSettings, getSettings } = await import('../src/settings.js');
 const { parseVtt } = await import('../src/vtt.js');
-const { generateStoryboard } = await import('../src/llm.js');
+const { generateStoryboard, parseModelJson } = await import('../src/llm.js');
 const { scaleForQuality } = await import('../src/render.js');
 
 console.log('settings');
@@ -62,7 +62,7 @@ await test('returns [] for empty input', () => {
 });
 
 console.log('offline storyboard fallback');
-await test('no API key → valid schema-shaped storyboard', async () => {
+await test('no API key â†’ valid schema-shaped storyboard', async () => {
   const sb = await generateStoryboard({ prompt: 'A cool product launch. It changes everything. Try it today.', aspect: '16:9' });
   assert.ok(sb.scenes.length >= 3, `expected >=3 scenes, got ${sb.scenes.length}`);
   assert.strictEqual(sb.scenes[0].template, 'title-card');
@@ -71,8 +71,36 @@ await test('no API key → valid schema-shaped storyboard', async () => {
   assert.ok(sb.scenes.every((s) => ['fade-up', 'zoom', 'slide-left'].includes(s.animation)));
 });
 
+console.log('model JSON parsing (tolerant)');
+await test('parses clean JSON', () => {
+  const out = parseModelJson('{"title":"Launch","scenes":[]}');
+  assert.strictEqual(out.title, 'Launch');
+});
+await test('strips markdown fences', () => {
+  const out = parseModelJson('```json\n{"title":"Fenced","scenes":[]}\n```');
+  assert.strictEqual(out.title, 'Fenced');
+});
+await test('recovers JSON surrounded by chatter', () => {
+  const out = parseModelJson('Sure! Here is the plan:\n{"title":"Chatty","scenes":[]}\nHope that helps.');
+  assert.strictEqual(out.title, 'Chatty');
+});
+await test('repairs trailing commas', () => {
+  const out = parseModelJson('{"title":"Trailing","scenes":[],}');
+  assert.strictEqual(out.title, 'Trailing');
+});
+await test('normalizes smart quotes', () => {
+  const out = parseModelJson('{“title”:“Smart”}');
+  assert.strictEqual(out.title, 'Smart');
+});
+await test('handles odd whitespace and newlines', () => {
+  const out = parseModelJson('  \n\n  {\n  "title" :  "Spaced"  ,\n  "scenes" : [ ]\n }  \n ');
+  assert.strictEqual(out.title, 'Spaced');
+});
+await test('throws on non-JSON', () => {
+  assert.throws(() => parseModelJson('I cannot help with that.'));
+});
 console.log('draft scaling');
-await test('draft: 30fps→15fps halves frames & dims, keeps duration', () => {
+await test('draft: 30fpsâ†’15fps halves frames & dims, keeps duration', () => {
   const comp = { width: 1920, height: 1080, fps: 30, durationInFrames: 300 };
   const d = scaleForQuality(comp, 'draft');
   assert.strictEqual(d.fps, 15);
@@ -104,4 +132,5 @@ if (failures) {
   console.error(`\n${failures} test(s) FAILED`);
   process.exit(1);
 }
-console.log('\nAll tests passed ✓');
+console.log('\nAll tests passed âœ“');
+

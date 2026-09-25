@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { mkdir, copyFile, readdir, unlink, stat } from 'node:fs/promises';
+import { mkdir, copyFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
