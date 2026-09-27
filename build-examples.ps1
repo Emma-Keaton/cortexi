@@ -1,96 +1,145 @@
-$ErrorActionPreference = 'Continue'
-$base = 'E:\Projects\cortexi'
-$log = "$base\examples-build.log"
-function W($m) { Add-Content -Path $log -Value $m }
-Set-Content -Path $log -Value 'examples build start'
-$pub = "$base\web\public\examples"
-New-Item -ItemType Directory -Force $pub | Out-Null
+﻿<#
+.SYNOPSIS
+  Regenerates the showcase gallery in web/public/examples from examples/concepts.json.
 
-function New-Sb($title, $aspect, $scenes) {
-  @{
-    title = $title; aspect = $aspect; fps = 30
-    style   = @{ primaryColor = '#7C3AED'; backgroundColor = '#0A0A0E'; textColor = '#FFFFFF'; font = 'Inter' }
-    voice   = @{ engine = 'edge-tts'; voice = 'en-US-AriaNeural' }
+.DESCRIPTION
+  Each concept is expanded into a full storyboard (gradients, typography, motion,
+  layout), sent to /api/voice for a real neural voiceover with word timings, then
+  rendered by the local Remotion pipeline. A poster frame is extracted from each MP4.
+
+  Server rendering must be enabled for this script:
+      $env:CORTEXI_ENABLE_SERVER_RENDER = '1'
+  (the hosted Render deployment leaves it off - users render in their browser).
+
+.EXAMPLE
+  $env:CORTEXI_ENABLE_SERVER_RENDER='1'; pnpm dev; ./build-examples.ps1
+#>
+$ErrorActionPreference = 'Continue'
+$base    = Split-Path -Parent $MyInvocation.MyCommand.Path
+$api     = 'http://localhost:8787'
+$pub     = Join-Path $base 'web\public\examples'
+$conceptsPath = Join-Path $base 'examples\concepts.json'
+$log     = Join-Path $base 'examples-build.log'
+
+New-Item -ItemType Directory -Force $pub | Out-Null
+Set-Content -Path $log -Value ("examples build start " + (Get-Date -Format s))
+function W($m) { Add-Content -Path $log -Value $m; Write-Host $m }
+
+# Template -> motion entrance. Keeps the gallery visually varied.
+$entrance = @{
+  'title-card'         = 'fade-up'
+  'editorial-hero'     = 'slide-left'
+  'feature'            = 'fade-up'
+  'split-feature'      = 'slide-left'
+  'product-spotlight'  = 'zoom'
+  'full-bleed'         = 'mask-reveal'
+  'typography-statement' = 'fade-up'
+  'logo-interstitial'  = 'zoom'
+  'call-to-action'     = 'slide-right'
+  'outro'              = 'fade-up'
+}
+
+# Alternating background treatments so consecutive scenes feel designed, not repetitive.
+$bgModes = @('gradient', 'color', 'split', 'color')
+
+$concepts = (Get-Content $conceptsPath -Raw -Encoding utf8 | ConvertFrom-Json).concepts
+W ("loaded $($concepts.Count) concepts")
+
+$i = 0
+foreach ($c in $concepts) {
+  $i++
+  W ("=== [$i/$($concepts.Count)] $($c.slug) - $($c.brand) ===")
+
+  $scenes = @()
+  $n = 0
+  foreach ($s in $c.scenes) {
+    $n++
+    $bgType = $bgModes[($i + $n) % $bgModes.Count]
+    $isLast = ($n -eq $c.scenes.Count)
+    $scenes += @{
+      id        = "s$n"
+      template  = $s.template
+      eyebrow   = $s.eyebrow
+      headline  = $s.headline
+      body      = $s.body
+      ctaLabel  = $s.ctaLabel
+      animation = $entrance[$s.template]
+      motion    = @{ entrance = $entrance[$s.template]; intensity = 0.5 }
+      background= @{
+        type           = $bgType
+        secondaryColor = $c.palette.secondary
+        overlayOpacity = 0.25
+      }
+      layout    = @{
+        align     = if ($s.template -eq 'typography-statement') { 'left' } else { 'center' }
+        direction = if ($s.template -eq 'editorial-hero') { 'right' } else { 'center' }
+      }
+      typography= @{
+        font       = $null
+        sizeScale  = if ($s.template -eq 'title-card') { 1.1 } else { 1 }
+        weight     = 800
+        tracking   = if ($s.template -eq 'typography-statement') { -1 } else { 0 }
+        uppercase  = ($s.template -eq 'title-card')
+      }
+    }
+  }
+
+    # Zod rejects explicit nulls, so drop empty optional fields before sending.
+    foreach ($sc in $scenes) {
+      foreach ($k in @($sc.Keys)) {
+        if ($null -eq $sc[$k]) { $sc.Remove($k) }
+        elseif ($sc[$k] -is [hashtable]) {
+          foreach ($ik in @($sc[$k].Keys)) { if ($null -eq $sc[$k][$ik]) { $sc[$k].Remove($ik) } }
+        }
+      }
+    }
+  $sb = @{
+    title   = "$($c.brand) - $($c.tagline)"
+    aspect  = $c.aspect
+    fps     = 30
+    style   = @{
+      primaryColor    = $c.palette.primary
+      backgroundColor = $c.palette.background
+      textColor       = $c.palette.text
+      font            = 'Inter, Arial, sans-serif'
+    }
+    voice   = @{ engine = $c.voice.engine; voice = $c.voice.voice }
     captions = $true
     scenes  = $scenes
-  } | ConvertTo-Json -Depth 12
-}
-
-$examples = @(
-  @{
-    file = 'aurora-coffee'
-    sb   = @{
-      title = 'Aurora Coffee — Weekly Fresh Beans'; aspect = '16:9'; fps = 30
-      style = @{ primaryColor = '#7C3AED'; backgroundColor = '#0A0A0E'; textColor = '#FFFFFF'; font = 'Inter' }
-      voice = @{ engine = 'edge-tts'; voice = 'en-US-AriaNeural' }
-      captions = $true
-      scenes = @(
-        @{ id = 's1'; template = 'title-card'; headline = 'Aurora Coffee Club'; body = 'Freshly roasted beans, delivered every single week.'; animation = 'zoom'; durationSec = 4 },
-        @{ id = 's2'; template = 'feature'; headline = 'Roasted to Order'; body = 'Every bag ships within twenty four hours of roasting.'; animation = 'fade-up'; durationSec = 4 },
-        @{ id = 's3'; template = 'feature'; headline = 'Yours, Your Way'; body = 'Pick your roast, your grind and your rhythm. Pause anytime.'; animation = 'slide-left'; durationSec = 4 },
-        @{ id = 's4'; template = 'outro'; headline = 'Start Your Ritual'; body = 'Join the club today and taste the difference freshness makes.'; animation = 'fade-up'; durationSec = 4 }
-      )
-    }
-  },
-  @{
-    file = 'novafit-app'
-    sb   = @{
-      title = 'NovaFit — Your Pocket Coach'; aspect = '16:9'; fps = 30
-      style = @{ primaryColor = '#F59E0B'; backgroundColor = '#14141B'; textColor = '#F4F4F6'; font = 'Inter' }
-      voice = @{ engine = 'edge-tts'; voice = 'en-US-GuyNeural' }
-      captions = $true
-      scenes = @(
-        @{ id = 's1'; template = 'title-card'; headline = 'Meet NovaFit'; body = 'The pocket coach that adapts to your day.'; animation = 'fade-up'; durationSec = 4 },
-        @{ id = 's2'; template = 'feature'; headline = 'Smart Plans'; body = 'Workouts that reshape themselves around your schedule.'; animation = 'zoom'; durationSec = 4 },
-        @{ id = 's3'; template = 'feature'; headline = 'Real Progress'; body = 'Clear charts show every rep, every week, every win.'; animation = 'slide-left'; durationSec = 4 },
-        @{ id = 's4'; template = 'outro'; headline = 'Train Smarter'; body = 'Download NovaFit and move today.'; animation = 'zoom'; durationSec = 4 }
-      )
-    }
-  },
-  @{
-    file = 'bytebite-reel'
-    sb   = @{
-      title = 'ByteBite — Snack Smarter'; aspect = '9:16'; fps = 30
-      style = @{ primaryColor = '#10B981'; backgroundColor = '#0A0A0E'; textColor = '#FFFFFF'; font = 'Inter' }
-      voice = @{ engine = 'edge-tts'; voice = 'en-US-JennyNeural' }
-      captions = $true
-      scenes = @(
-        @{ id = 's1'; template = 'title-card'; headline = 'Snack Smarter'; body = 'ByteBite fuels your day the honest way.'; animation = 'zoom'; durationSec = 4 },
-        @{ id = 's2'; template = 'feature'; headline = 'Real Ingredients'; body = 'No fillers. No guilt. Just food that works.'; animation = 'fade-up'; durationSec = 4 },
-        @{ id = 's3'; template = 'outro'; headline = 'Grab a Box'; body = 'Your first box ships free. Tap in.'; animation = 'fade-up'; durationSec = 4 }
-      )
-    }
   }
-)
 
-foreach ($ex in $examples) {
-  W ('=== ' + $ex.file + ' ===')
-  $sb = $ex.sb | ConvertTo-Json -Depth 12
-  W 'voice...'
+  # 1) Voiceover
   try {
-    $voiced = Invoke-RestMethod -Uri http://localhost:8787/api/voice -Method Post -ContentType 'application/json' -Body (@{ storyboard = $sb } | ConvertTo-Json -Depth 12) -TimeoutSec 180
-    W ('voice ok: ' + (($voiced.scenes | ForEach-Object { $_.durationSec }) -join ','))
+    $voiced = Invoke-RestMethod -Uri "$api/api/voice" -Method Post -ContentType 'application/json' `
+      -Body (@{ storyboard = $sb } | ConvertTo-Json -Depth 12 -Compress) -TimeoutSec 240
+    W ('  voice ok: ' + (($voiced.scenes | ForEach-Object { $_.durationSec }) -join ', '))
   } catch {
-    W ('voice FAILED: ' + $_.Exception.Message + ' — rendering silent')
-    $voiced = $sb | ConvertFrom-Json
-    $voiced.scenes | ForEach-Object { $_.durationSec = 4 }
+    W ('  voice FAILED: ' + $_.Exception.Message)
+    continue
   }
-  W 'render (final)...'
+
+  # 2) Render
   try {
-    $job = Invoke-RestMethod -Uri http://localhost:8787/api/render -Method Post -ContentType 'application/json' -Body (@{ storyboard = $voiced; quality = 'final' } | ConvertTo-Json -Depth 12) -TimeoutSec 30
-    W ('job=' + $job.jobId)
-    $deadline = (Get-Date).AddMinutes(6)
+    $job = Invoke-RestMethod -Uri "$api/api/render" -Method Post -ContentType 'application/json' `
+      -Body (@{ storyboard = $voiced; quality = 'final' } | ConvertTo-Json -Depth 12 -Compress) -TimeoutSec 60
+    $deadline = (Get-Date).AddMinutes(10)
     do {
-      Start-Sleep 6
-      $j = Invoke-RestMethod -Uri ('http://localhost:8787/api/jobs/' + $job.jobId)
-      W ('  ' + $j.status + ' ' + $j.progress + '%')
+      Start-Sleep 5
+      $j = Invoke-RestMethod -Uri "$api/api/jobs/$($job.jobId)" -TimeoutSec 30
+      W "  $($j.status) $($j.progress)%"
     } while ($j.status -in @('queued', 'rendering') -and (Get-Date) -lt $deadline)
-    if ($j.status -eq 'done') {
-      $out = "$base\assets\output\$($j.output.Split('/')[-1])"
-      Copy-Item $out "$pub\$($ex.file).mp4" -Force
-      cmd /c "ffmpeg -y -ss 1 -i $pub\$($ex.file).mp4 -frames:v 1 -q:v 3 $pub\$($ex.file).jpg > NUL 2>&1"
-      W ('DONE ' + $ex.file + ' size=' + (Get-Item "$pub\$($ex.file).mp4").Length)
-    } else { W ('FAILED: ' + ($j | ConvertTo-Json -Compress)) }
-  } catch { W ('render exception: ' + $_.Exception.Message) }
+
+    if ($j.status -ne 'done') { W ('  RENDER FAILED: ' + ($j | ConvertTo-Json -Compress)); continue }
+
+    $name = "$($c.slug).mp4"
+    Copy-Item (Join-Path $base "assets\output\$($j.output.Split('/')[-1])") (Join-Path $pub $name) -Force
+    # Poster: grab a frame from the middle so the title card is not half-faded.
+    cmd /c "ffmpeg -y -ss 1.2 -i `"$pub\$name`" -frames:v 1 -q:v 3 `"$pub\$($c.slug).jpg`" > NUL 2>&1"
+    W ('  DONE ' + $c.slug + ' -> ' + [math]::Round((Get-Item (Join-Path $pub $name)).Length / 1KB) + ' KB')
+  } catch {
+    W ('  render exception: ' + $_.Exception.Message)
+  }
 }
+
 W 'examples build complete'
+

@@ -4,27 +4,10 @@ import { FolderPickerModal } from './components/FolderPickerModal.js';
 import { BrandColorPicker } from './components/BrandColorPicker.js';
 import { FaqView, AdSlot } from './components/FaqView.js';
 import { renderOnDevice, downloadBlob, type ClientStoryboard, type ExportFormat, type RenderProgress } from './clientRender.js';
-import type { Scene, Storyboard, Word } from './AppTypes.js';
-
-export const API_BASE = (import.meta as any).env?.VITE_API_TARGET ?? '';
-
-const apiUrl = (path: string) => `${API_BASE}/api${path}`;
-const assetBase = (path: string) => `${API_BASE}/assets/${String(path).replace(/^\/+/, '')}`;
-
-const api = async (path: string, body?: any) => {
-  let res: Response;
-  try {
-    res = await fetch(apiUrl(path), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new Error('Cannot reach the Cortexi server. If it is a free host, it may be waking up — retry in ~30 seconds.');
-  }
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-};
+import type { Scene, Storyboard } from './AppTypes.js';
+import { apiUrl, api } from './api.js';
+import { BrandKitManager } from './components/BrandKitManager.js';
+import { SuperPromptPanel } from './components/SuperPromptPanel.js';
 
 export default function App() {
   const [prompt, setPrompt] = useState('An explainer video for a coffee subscription brand that delivers fresh beans weekly');
@@ -474,10 +457,14 @@ export default function App() {
         {/* STUDIO WIZARD VIEW */}
         {view === 'wizard' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+             <SuperPromptPanel onUse={(t) => setPrompt(t)} onPromptChange={setPrompt} />
              <FaqView />
              <AdSlot provider="Adsterra" />
              <AdSlot provider="Monetag" />
 
+             <BrandKitManager
+               onApply={(style) => setSb((current) => current ? { ...current, style: { ...current.style, ...style } } : current)}
+             />
              <BrandColorPicker onPick={(color) => sb && setSb({ ...sb, style: { ...sb.style, primaryColor: color } })} />
              {/* Showcase Gallery */}
             {/* Showcase Gallery */}
@@ -1065,6 +1052,10 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
 
 
 

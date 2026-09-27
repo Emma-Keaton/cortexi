@@ -35,10 +35,13 @@ client:
 - **BYOK** for Groq/Gemini if you want stronger blueprints or batch work
 - 16:9, 9:16, and 1:1 aspect ratios; draft and master quality
 - Karaoke-style word-synced captions
-- Brand colour extraction from an uploaded logo or product shot
+- **Brand kit manager** - upload/tag brand assets, extract dominant colours in-browser, derive a contrast-checked (WCAG AA) palette
+- Storyboard normalization: always 3-6 scenes, one opener, one closer, no repeated entrances
 - Local product background removal (`rembg`)
 - Per-device daily rate limits
-- FAQ, ad slots, and a showcase gallery
+- **Super prompts** - 5 copy-paste prompt recipes that teach structure, art direction, and delivery
+- Showcase gallery of 3 rendered examples, each with the real prompt behind it
+- FAQ and ad slots
 
 ## Architecture
 
@@ -126,7 +129,7 @@ returns a usable storyboard.
 ## Project layout
 
 ```
-server/src/      Hono API, LLM ladder, TTS adapters, render queue, settings
+server/src/      Hono API, LLM ladder, TTS adapters, brand assets, storyboard rules, render queue, settings
 server/remotion/ React compositions (local server rendering only)
 server/scripts/  Piper + Kokoro Python adapters, voice prefetch
 server/tests/    unit tests
@@ -142,3 +145,5 @@ MIT - see [`LICENSE`](./LICENSE).
 runtime dependencies before commercial use: Piper voice models, Microsoft Edge
 TTS, Remotion, Groq, Gemini, and the Hugging Face Router each carry their own
 terms.
+
+

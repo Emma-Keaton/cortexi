@@ -126,3 +126,60 @@ button, input, select, textarea {
   animation: pulseDot 2s ease-in-out infinite;
 }
 
+
+/* ---- Brand kit manager ---------------------------------------------------- */
+.brand-kit { display:flex; flex-direction:column; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; }
+.brand-kit-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+.brand-kit-head h3 { margin:0 0 4px; font-size:15px; }
+.brand-kit-head p { margin:0; color:var(--text2); font-size:12px; max-width:52ch; }
+.brand-kit-actions { display:flex; gap:8px; align-items:center; }
+.brand-kit-actions select,
+.brand-kit-actions button,
+.swatch input { border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); padding:8px 10px; font-size:12px; }
+.brand-kit-actions button { cursor:pointer; font-weight:600; border-color:var(--border-strong); }
+.brand-kit-actions button:disabled { opacity:.6; cursor:not-allowed; }
+.brand-kit-error { margin:0; color:#FCA5A5; font-size:12px; }
+.brand-kit-body { display:grid; grid-template-columns:1fr 260px; gap:20px; }
+@media (max-width:720px){ .brand-kit-body { grid-template-columns:1fr; } }
+.brand-asset-list { display:flex; flex-direction:column; gap:8px; }
+.brand-asset { display:flex; align-items:center; gap:10px; padding:8px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px; }
+.brand-asset img { width:40px; height:40px; object-fit:contain; border-radius:6px; background:var(--bg-subtle); }
+.brand-asset-meta { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.brand-asset-meta strong { font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.brand-asset-meta span { font-size:11px; color:var(--text2); }
+.brand-asset .ghost { background:none; border:0; color:var(--text3); cursor:pointer; font-size:16px; line-height:1; padding:4px 8px; }
+.brand-asset .ghost:hover { color:var(--rose); }
+.brand-kit-palette { display:flex; flex-direction:column; gap:10px; }
+.swatch { display:flex; align-items:center; gap:8px; font-size:12px; }
+.swatch-label { color:var(--text3); min-width:74px; text-transform:uppercase; letter-spacing:.06em; }
+.swatch input { width:30px; height:30px; padding:0; cursor:pointer; }
+.swatch code { color:var(--amber); font-size:11px; }
+.contrast-row { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; }
+.contrast-row .pass { color:var(--emerald); }
+.contrast-row .warn { color:var(--amber); }
+.contrast-row .fail { color:var(--rose); }
+.brand-kit-palette .primary { margin-top:4px; padding:9px 14px; border:0; border-radius:8px; background:var(--gradient-btn); color:#fff; font-weight:600; font-size:12px; cursor:pointer; }
+.brand-kit-palette .primary:disabled { opacity:.5; cursor:not-allowed; }
+.muted { color:var(--text3); font-size:12px; }
+
+/* ---- Super prompts --------------------------------------------------------- */
+.super-prompt { display:flex; flex-direction:column; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; }
+.super-prompt-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+.super-prompt-head h3 { margin:0 0 4px; font-size:15px; }
+.super-prompt-head p { margin:0; color:var(--text2); font-size:12px; }
+.super-prompt-head button { padding:9px 14px; border:0; border-radius:8px; background:var(--gradient-btn); color:#fff; font-size:12px; font-weight:600; cursor:pointer; }
+.recipe-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+.recipe-tabs button { padding:7px 12px; border:1px solid var(--border); border-radius:999px; background:var(--input-bg); color:var(--text2); font-size:12px; font-weight:600; cursor:pointer; }
+.recipe-tabs button.active { border-color:var(--violet); background:rgba(124,58,237,.16); color:var(--text); }
+.recipe-blurb { margin:0; font-size:12px; color:var(--text2); }
+.recipe-tags { display:flex; gap:6px; flex-wrap:wrap; }
+.recipe-tags span { padding:3px 8px; border-radius:6px; background:rgba(16,185,129,.12); color:var(--emerald); font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.recipe-help { background:var(--input-bg); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+.recipe-help ul { margin:8px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:5px; }
+.recipe-help li { font-size:12px; color:var(--text2); }
+.recipe-help code { color:var(--violet); font-size:11px; }
+.super-prompt .link { align-self:flex-start; background:none; border:0; color:var(--violet); font-size:12px; font-weight:600; cursor:pointer; padding:0; }
+.super-prompt-source { margin-top:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.super-prompt-source summary { font-size:12px; font-weight:600; cursor:pointer; color:var(--violet); }
+.super-prompt-source p { margin:10px 0 0; font-size:12px; line-height:1.55; color:var(--text2); white-space:pre-wrap; }
+button.secondary { padding:8px 18px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface-elevated); color:var(--text); font-weight:600; cursor:pointer; }

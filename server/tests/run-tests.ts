@@ -24,6 +24,8 @@ process.env.CORTEXI_SETTINGS_FILE = path.join(os.tmpdir(), `cortexi-test-setting
 const { saveSettings, getSettings } = await import('../src/settings.js');
 const { parseVtt } = await import('../src/vtt.js');
 const { generateStoryboard, parseModelJson } = await import('../src/llm.js');
+const { normalizeStoryboard, estimateSceneDuration, clampDuration, storyboardDuration, spokenCharacters, MAX_SCENES, MIN_SCENE_SEC, MIN_SCENES } = await import('../src/storyboard.js');
+const { deriveBrandKit, contrastRatio, meetsContrast, deriveSecondary, hexToRgb, rgbToHex, bestTextColor } = await import('../src/brandAssets.js');
 const { scaleForQuality } = await import('../src/render.js');
 
 console.log('settings');
@@ -99,6 +101,127 @@ await test('handles odd whitespace and newlines', () => {
 await test('throws on non-JSON', () => {
   assert.throws(() => parseModelJson('I cannot help with that.'));
 });
+
+console.log('colour science (WCAG)');
+await test('hex round-trips through rgb', () => {
+  assert.strictEqual(rgbToHex(hexToRgb('#7C3AED')), '#7C3AED');
+});
+await test('black on white is the maximum contrast ratio', () => {
+  assert.strictEqual(Math.round(contrastRatio('#000000', '#FFFFFF')), 21);
+});
+await test('identical colours have a ratio of 1', () => {
+  assert.ok(Math.abs(contrastRatio('#123456', '#123456') - 1) < 0.01);
+});
+await test('mid grey fails AA on white, near-black passes', () => {
+  assert.ok(!meetsContrast('#777777', '#FFFFFF'));
+  assert.ok(meetsContrast('#0A0A0E', '#FFFFFF'));
+});
+await test('bestTextColor picks the readable option', () => {
+  assert.strictEqual(bestTextColor('#FFFFFF'), '#0A0A0E');
+  assert.strictEqual(bestTextColor('#0A0A0E'), '#FFFFFF');
+});
+await test('derived secondary stays in the same hue family', () => {
+  const sec = deriveSecondary('#7C3AED');
+  assert.match(sec, /^#[0-9A-F]{6}$/);
+});
+await test('deriveBrandKit repairs an unreadable text colour', () => {
+  const kit = deriveBrandKit({ primaryColor: '#7C3AED', backgroundColor: '#FFFFFF', textColor: '#EEEEEE' });
+  assert.ok(kit.checks.textOnBackgroundPass, 'text should be made readable');
+  assert.ok(meetsContrast(kit.textColor, kit.backgroundColor));
+});
+await test('deriveBrandKit reports contrast diagnostics', () => {
+  const kit = deriveBrandKit({ primaryColor: '#7C3AED', backgroundColor: '#0A0A0E' });
+  assert.ok(kit.checks.textOnBackground > 4.5);
+  assert.ok(typeof kit.checks.primaryOnBackgroundPass === 'boolean');
+});
+
+console.log('storyboard normalization');
+await test('clamps duration into the safe range', () => {
+  assert.ok(clampDuration(0.1) >= MIN_SCENE_SEC);
+  assert.ok(clampDuration(999) <= 12);
+});
+await test('estimates duration from word count', () => {
+  const short = estimateSceneDuration('Hi');
+  const long = estimateSceneDuration('A much longer headline with many more words in it');
+  assert.ok(long > short);
+});
+await test('forces title-card first and outro last', () => {
+  const sb = normalizeStoryboard({
+    title: 'T', aspect: '16:9',
+    style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [
+      { id: 'x1', template: 'feature', headline: 'A', animation: 'fade-up' },
+      { id: 'x2', template: 'feature', headline: 'B', animation: 'fade-up' },
+      { id: 'x3', template: 'feature', headline: 'C', animation: 'fade-up' },
+    ],
+  });
+  assert.strictEqual(sb.scenes[0].template, 'title-card');
+  assert.strictEqual(sb.scenes[sb.scenes.length - 1].template, 'outro');
+});
+await test('renumbers ids sequentially', () => {
+  const sb = normalizeStoryboard({
+    title: 'T', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [
+      { id: 'zz', template: 'title-card', headline: 'A', animation: 'zoom' },
+      { id: 'yy', template: 'feature', headline: 'B', animation: 'zoom' },
+      { id: 'xx', template: 'outro', headline: 'C', animation: 'zoom' },
+    ],
+  });
+  assert.deepStrictEqual(sb.scenes.map((s) => s.id), ['s1', 's2', 's3']);
+});
+await test('avoids two identical entrances in a row', () => {
+  const sb = normalizeStoryboard({
+    title: 'T', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [
+      { id: 'a', template: 'title-card', headline: 'A', animation: 'zoom' },
+      { id: 'b', template: 'feature', headline: 'B', animation: 'zoom' },
+      { id: 'c', template: 'feature', headline: 'C', animation: 'zoom' },
+      { id: 'd', template: 'outro', headline: 'D', animation: 'zoom' },
+    ],
+  });
+  for (let i = 1; i < sb.scenes.length; i++) {
+    assert.ok(sb.scenes[i].animation !== sb.scenes[i - 1].animation, 'scene ' + i + ' repeats entrance');
+  }
+});
+await test('caps the scene count', () => {
+  const scenes = Array.from({ length: 12 }, (_, i) => ({ id: 's' + i, template: 'feature', headline: 'H' + i, animation: 'zoom' }));
+  const sb = normalizeStoryboard({ title: 'T', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true, scenes: scenes as never });
+  assert.ok(sb.scenes.length <= MAX_SCENES);
+});
+await test('pads a two-scene storyboard up to the minimum', () => {
+  const sb = normalizeStoryboard({
+    title: 'T', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [
+      { id: 'a', template: 'title-card', headline: 'A', animation: 'zoom' },
+      { id: 'b', template: 'outro', headline: 'B', animation: 'zoom' },
+    ],
+  });
+  assert.ok(sb.scenes.length >= MIN_SCENES, 'expected at least ' + MIN_SCENES + ' scenes');
+  assert.strictEqual(sb.scenes[0].template, 'title-card');
+  assert.strictEqual(sb.scenes[sb.scenes.length - 1].template, 'outro');
+});
+await test('pads a single-scene storyboard', () => {
+  const sb = normalizeStoryboard({
+    title: 'Solo', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [{ id: 'a', template: 'feature', headline: 'Only', animation: 'zoom' }],
+  });
+  assert.ok(sb.scenes.length >= MIN_SCENES);
+  assert.strictEqual(sb.scenes[0].template, 'title-card');
+  assert.strictEqual(sb.scenes[sb.scenes.length - 1].template, 'outro');
+});
+await test('computes duration and spoken character totals', () => {
+  const sb = normalizeStoryboard({
+    title: 'T', aspect: '16:9', style: {}, voice: { engine: 'none', voice: 'none' }, captions: true,
+    scenes: [
+      { id: 'a', template: 'title-card', headline: 'Hello', body: 'World', animation: 'fade-up' },
+      { id: 'b', template: 'feature', headline: 'Second', animation: 'fade-up' },
+      { id: 'c', template: 'outro', headline: 'Bye', animation: 'fade-up' },
+    ],
+  });
+  assert.ok(storyboardDuration(sb) > 0);
+  assert.ok(spokenCharacters(sb) > 0);
+});
+
 console.log('draft scaling');
 await test('draft: 30fpsâ†’15fps halves frames & dims, keeps duration', () => {
   const comp = { width: 1920, height: 1080, fps: 30, durationInFrames: 300 };
@@ -133,4 +256,7 @@ if (failures) {
   process.exit(1);
 }
 console.log('\nAll tests passed âœ“');
+
+
+
 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { useCurrentFrame, useVideoConfig, interpolate } from 'remotion';
+﻿import React from 'react';
+import { useCurrentFrame, useVideoConfig, interpolate, Easing } from 'remotion';
 import type { Storyboard, WordTiming } from '../src/types';
 
 const CHUNK = 4;
@@ -17,7 +17,17 @@ export const Captions: React.FC<{ words: WordTiming[]; style: Storyboard['style'
   const chunkStart = Math.floor(idx / CHUNK) * CHUNK;
   const chunk = words.slice(chunkStart, chunkStart + CHUNK);
   const chunkT = t - chunk[0].start;
-  const opacity = interpolate(chunkT, [0, 0.15], [0, 1], { extrapolateRight: 'clamp' });
+  // Eased fade + a springy pop on the active word reads better than a hard swap.
+  const opacity = interpolate(chunkT, [0, 0.15], [0, 1], {
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const pop = interpolate(chunkT, [0, 0.12], [0.6, 1], {
+    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   return (
     <div
@@ -36,6 +46,12 @@ export const Captions: React.FC<{ words: WordTiming[]; style: Storyboard['style'
     >
       {chunk.map((w, i) => {
         const active = chunkStart + i === idx;
+        // Ease each word in so the highlight does not snap.
+        const wordIn = interpolate(t, [w.start, Math.min(w.end, w.start + 0.12)], [0.85, 1], {
+          easing: Easing.out(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
         return (
           <span
             key={i}
@@ -43,8 +59,8 @@ export const Captions: React.FC<{ words: WordTiming[]; style: Storyboard['style'
               fontSize: width * 0.032,
               fontWeight: 800,
               color: active ? style.primaryColor : style.textColor,
-              textShadow: '0 2px 12px rgba(0,0,0,0.8)',
-              transform: active ? 'scale(1.12)' : 'scale(1)',
+              transform: `scale(${active ? pop * 1.12 : wordIn})`,
+              display: 'inline-block',
               transition: 'none',
             }}
           >
@@ -55,3 +71,4 @@ export const Captions: React.FC<{ words: WordTiming[]; style: Storyboard['style'
     </div>
   );
 };
+

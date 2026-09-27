@@ -33,3 +33,11 @@ install.log
 Thumbs.db
 .vscode/
 .idea/
+
+# Scratch files from local tooling
+.t.*
+*.t.mp3
+examples-build.log
+server-examples.log
+add.log
+assets/brand-assets.json

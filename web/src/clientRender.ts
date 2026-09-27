@@ -6,6 +6,7 @@
  * The hosted backend (Render free tier) is never asked to run Remotion.
  */
 import type { Scene } from './AppTypes.js';
+import { assetUrl } from './api.js';
 
 export type RenderProgress = {
   phase: 'preparing' | 'rendering' | 'encoding' | 'done';
@@ -33,13 +34,6 @@ const ASPECT_DIMENSIONS = {
 } as const;
 
 const RESOLUTION_SCALE: Record<'draft' | 'final', number> = { draft: 0.5, final: 1 };
-
-export function assetUrl(filePath?: string): string | undefined {
-  if (!filePath) return undefined;
-  if (/^https?:/i.test(filePath)) return filePath;
-  const base = (import.meta as any).env?.VITE_API_TARGET ?? '';
-  return `${base}/assets/${filePath.replace(/^\/+/, '')}`;
-}
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
@@ -333,4 +327,5 @@ async function recordScenes(
   onProgress?.({ phase: 'done', percent: 100 });
   return { blob, durationSec: totalDuration };
 }
+
 

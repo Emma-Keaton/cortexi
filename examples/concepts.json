@@ -1,0 +1,53 @@
+{
+  "note": "Art direction, verified Edge TTS voices, and a super prompt per concept. Regenerate the gallery with ./build-examples.ps1. Only use Edge TTS voices verified to return audio.",
+  "concepts": [
+    {
+      "slug": "aurelia-chronos",
+      "brand": "Aurelia Watches",
+      "tagline": "Time Refined",
+      "badge": "Luxury Timepieces",
+      "aspect": "16:9",
+      "superPrompt": "A 20-second luxury watch launch film for Aurelia. Open on a title card reading \"Aurelia Chrono\" over a white-to-warm-cream gradient with thin gold rules. Then one scene per benefit using a left-aligned editorial layout with generous negative space: the sapphire crystal face, the Swiss automatic movement, the 72-hour power reserve. Close on a full-bleed hero with a gold call-to-action button. Palette: near-black type, antique gold accent, white background. Voice: calm and precise, unhurried, as if describing a piece you would handle once a year.",
+      "palette": { "primary": "#B08D3F", "secondary": "#8C6A24", "background": "#FBF9F4", "text": "#14110B" },
+      "voice": { "engine": "edge-tts", "voice": "en-US-AriaNeural" },
+      "scenes": [
+        { "template": "title-card", "eyebrow": "Introducing", "headline": "Aurelia Chrono", "body": "Where Swiss precision meets restraint.", "ctaLabel": "Reserve Yours" },
+        { "template": "editorial-hero", "eyebrow": "The Case", "headline": "Sapphire Crystal Face", "body": "A scratch resistant crystal over a hand finished dial." },
+        { "template": "split-feature", "eyebrow": "The Movement", "headline": "Built To Outlast Us", "body": "A Swiss automatic calibre rated to seventy two hours." },
+        { "template": "call-to-action", "eyebrow": "Limited Series", "headline": "Two Hundred Pieces", "body": "Each numbered by hand in Geneva.", "ctaLabel": "Join The List" }
+      ]
+    },
+    {
+      "slug": "vireo-summer-capsule",
+      "brand": "Vireo",
+      "tagline": "Worn Lightly",
+      "badge": "Sustainable Fashion",
+      "aspect": "9:16",
+      "superPrompt": "A 15-second vertical social campaign for Vireo's summer capsule, composed for a phone screen. Open with a stacked typography statement on pale sage, set in lowercase with wide letter tracking. Then three quick beats, one idea each, each leading with a bold fact in the accent green: organic linen, plant dyed colour, made in small runs. Close on a single centered call to action. Palette: soft sage background, deep forest accent, charcoal text. Voice: warm and conversational, like a friend showing you their favourite pieces, never salesy.",
+      "palette": { "primary": "#2E6B4F", "secondary": "#1D4A36", "background": "#F2F6F1", "text": "#16241C" },
+      "voice": { "engine": "edge-tts", "voice": "en-US-JennyNeural" },
+      "scenes": [
+        { "template": "typography-statement", "eyebrow": "Summer Capsule", "headline": "Worn Lightly", "body": "Six pieces that get better with washing.", "ctaLabel": "Shop The Drop" },
+        { "template": "full-bleed", "eyebrow": "Fabric", "headline": "European Linen", "body": "Breathable, durable, and softer every season." },
+        { "template": "feature", "eyebrow": "Colour", "headline": "Plant Dyed", "body": "Colour from roots and bark, never synthetic." },
+        { "template": "outro", "eyebrow": "Made", "headline": "Small Runs Only", "body": "No landfill, no overproduction, no compromise.", "ctaLabel": "Get Early Access" }
+      ]
+    },
+    {
+      "slug": "nimbus-aero",
+      "brand": "Nimbus Audio",
+      "tagline": "Silence, Engineered",
+      "badge": "Premium Audio",
+      "aspect": "1:1",
+      "superPrompt": "A 16-second square product spot for flagship wireless headphones, framed for social feeds. Open on a centered hero with the product name over a cool graphite split background. Then two technical beats with hard numbers set in large type: forty two hours of playback, and adaptive noise cancelling that reads the room eight hundred times a second. Close on a minimal centered call to action. Palette: engineered monochrome, near black on cool grey, with a single electric cyan accent. Voice: deep, confident and precise, the way an engineer explains their own work.",
+      "palette": { "primary": "#00C2D7", "secondary": "#0A7C8A", "background": "#EDEFF1", "text": "#14181A" },
+      "voice": { "engine": "edge-tts", "voice": "en-US-GuyNeural" },
+      "scenes": [
+        { "template": "title-card", "eyebrow": "Nimbus Aero", "headline": "Silence, Engineered", "body": "Flagship wireless, rebuilt around quiet.", "ctaLabel": "Pre Order" },
+        { "template": "product-spotlight", "eyebrow": "Endurance", "headline": "Forty Two Hours", "body": "A full work week of playback on one charge." },
+        { "template": "split-feature", "eyebrow": "Adaptive ANC", "headline": "Reads The Room", "body": "Eight hundred adjustments every single second." },
+        { "template": "outro", "eyebrow": "Available", "headline": "Shipping This Spring", "body": "Three finishes. One signature sound.", "ctaLabel": "Hear The Difference" }
+      ]
+    }
+  ]
+}

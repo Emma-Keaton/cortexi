@@ -1,4 +1,5 @@
-﻿import { StoryboardSchema, type Storyboard } from './types.js';
+﻿import type { Storyboard } from './types.js';
+import { normalizeStoryboard } from './storyboard.js';
 
 const SYSTEM = `You are a video storyboard planner. Given a user's description of the video they want (brand promo, explainer, intro, etc.), output ONLY valid JSON matching this exact schema, no markdown fences:
 {
@@ -14,6 +15,28 @@ Rules:
 - body text of each scene is exactly what the voiceover will say.`;
 
 /** Generate a storyboard via Groq (OpenAI-compatible) or Gemini free tier. Falls back to rule-based. */
+/**
+ * Build the planner prompt. Brand context is appended only when present so we do
+ * not waste tokens on an empty brand kit.
+ */
+function buildPlannerPrompt(
+  prompt: string,
+  opts: { brandAssets?: Array<{ id: string; name: string; role: string }>; brandStyle?: Record<string, unknown> },
+): string {
+  const parts = [prompt];
+  if (opts.brandAssets?.length) {
+    const list = opts.brandAssets
+      .map((a) => `${a.id}="${a.name}" (${a.role})`)
+      .join(', ');
+    parts.push(`Brand assets available - reference an id in scene.image if it fits: ${list}.`);
+  }
+  if (opts.brandStyle && Object.keys(opts.brandStyle).length) {
+    parts.push(`Brand style (must be respected): ${JSON.stringify(opts.brandStyle)}`);
+  }
+  parts.push('Vary the composition templates. Keep each scene headline under 6 words. First scene is the title card, last scene is the outro with a call to action.');
+  return parts.join('\n\n');
+}
+
 export async function generateStoryboard(opts: {
   prompt: string;
   aspect: Storyboard['aspect'];
@@ -41,7 +64,7 @@ export async function generateStoryboard(opts: {
 
   if (effectiveKey) {
     try {
-      const raw = await callLlm(provider, effectiveKey, `${prompt}\n\nBrand assets (use IDs in scene.image): ${JSON.stringify(opts.brandAssets ?? [])}\nBrand style: ${JSON.stringify(opts.brandStyle ?? {})}\nUse varied composition templates, do not repeat one layout.`);
+      const raw = await callLlm(provider, effectiveKey, buildPlannerPrompt(prompt, opts));
       const parsed = parseModelJson(raw);
       title = parsed.title || title;
       if (Array.isArray(parsed.scenes) && parsed.scenes.length > 0) scenes = parsed.scenes;
@@ -55,14 +78,18 @@ export async function generateStoryboard(opts: {
     title = fb.title;
   }
 
-  return StoryboardSchema.parse({
+  // Normalization guarantees the structural invariants the renderer and TTS rely on.
+  return normalizeStoryboard({
     title,
     aspect,
     fps: 30,
-    style: {},
-    voice: { engine: process.env.PIPER_VOICES ? 'piper' : process.env.KOKORO_VOICES ? 'kokoro' : 'none', voice: (process.env.PIPER_VOICES ?? process.env.KOKORO_VOICES ?? '').split(',').map((v) => v.trim()).find(Boolean) ?? 'none' },
+    style: (opts.brandStyle ?? {}) as Storyboard['style'],
+    voice: {
+      engine: process.env.PIPER_VOICES ? 'piper' : process.env.KOKORO_VOICES ? 'kokoro' : 'none',
+      voice: (process.env.PIPER_VOICES ?? process.env.KOKORO_VOICES ?? '').split(',').map((v) => v.trim()).find(Boolean) ?? 'none',
+    },
     captions: true,
-    scenes: scenes.map((s, i) => ({ ...s, id: `s${i + 1}` })),
+    scenes,
   });
 }
 
@@ -245,3 +272,5 @@ function fallbackScenes(prompt: string): { title: string; scenes: Storyboard['sc
     ],
   };
 }
+
+

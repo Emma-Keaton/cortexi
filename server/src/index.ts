@@ -13,6 +13,8 @@ import { generateVoiceover } from './tts.js';
 import { enqueueRender, getJob } from './render.js';
 import { getSettings, saveSettings } from './settings.js';
 import { StoryboardSchema } from './types.js';
+import { listAssets, registerAsset, removeAsset, deriveBrandKit, describeBrandKit, BrandAssetSchema } from './brandAssets.js';
+import { storyboardDuration, spokenCharacters } from './storyboard.js';
 import { ASSETS_DIR, UPLOAD_DIR, OUT_DIR, WEB_DIST } from './paths.js';
 
 const execFileP = promisify(execFile);
@@ -72,9 +74,73 @@ app.get('/api/voices', (c) => {
   return c.json({ piper, kokoro, edge, combined });
 });
 
+// ---- Brand assets -------------------------------------------------------------
+// A registry of the user's brand files plus a derived, contrast-checked brand kit.
+
+app.get('/api/brand-assets', async (c) => {
+  const assets = await listAssets();
+  return c.json({ assets });
+});
+
+app.post('/api/brand-assets', async (c) => {
+  try {
+    const body = await c.req.json();
+    return c.json(await registerAsset(body));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 400);
+  }
+});
+
+app.delete('/api/brand-assets/:id', async (c) => {
+  const removed = await removeAsset(c.req.param('id'));
+  return c.json({ removed });
+});
+
+/** Derive (or recompute) the brand kit, including WCAG contrast diagnostics. */
+app.post('/api/brand-kit', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const assets = await listAssets();
+  // A logo's extracted colour is the most trustworthy signal of brand primary.
+  const fromLogo = assets.find((a) => a.role === 'logo')?.primaryColor;
+  const kit = deriveBrandKit({
+    primaryColor: body.primaryColor ?? fromLogo,
+    backgroundColor: body.backgroundColor,
+    textColor: body.textColor,
+    font: body.font,
+  });
+  return c.json({ kit, description: describeBrandKit(kit, assets), assets });
+});
+
+app.get('/api/brand-assets/schema', (c) => c.json({ roles: BrandAssetSchema.shape.role._def.values }));
+
 // 1. Prompt -> storyboard JSON
 app.post('/api/plan', async (c) => {
   const body = await c.req.json();
+  // Registered assets win; a one-off body payload is still accepted for convenience.
+  const registered = await listAssets();
+  let assets = registered;
+  if (!assets.length && Array.isArray(body.brandAssets)) {
+    // Loose payload from older clients - only the fields the planner needs.
+    assets = (body.brandAssets as Array<{ id?: string; name?: string; role?: string; path?: string; primaryColor?: string }>)
+      .filter((a) => a && a.id)
+      .map((a) =>
+        BrandAssetSchema.parse({
+          id: a.id,
+          name: a.name ?? a.id,
+          role: a.role ?? 'product',
+          path: a.path ?? '',
+        }),
+      )
+      .filter((a) => a.path.length > 0);
+  }
+
+  const kit = deriveBrandKit({
+    primaryColor: body.primaryColor ?? assets.find((a) => a.role === 'logo')?.primaryColor,
+    backgroundColor: body.backgroundColor,
+    textColor: body.textColor,
+    font: body.font,
+  });
+
   const sb = await generateStoryboard({
     prompt: String(body.prompt ?? ''),
     aspect: body.aspect ?? '16:9',
@@ -83,10 +149,16 @@ app.post('/api/plan', async (c) => {
     // Leave provider undefined when the client did not choose one, so the LLM
     // layer can fall back to the configured shared provider (HF Router).
     provider: body.provider as 'groq' | 'gemini' | 'huggingface' | undefined,
-    brandAssets: Array.isArray(body.brandAssets) ? body.brandAssets : [],
-    brandStyle: body.brandStyle ?? undefined,
+    brandAssets: assets.map((a) => ({ id: a.id, name: a.name, role: a.role, url: a.path })),
+    brandStyle: { ...kit, description: describeBrandKit(kit, assets) },
   });
-  return c.json(sb);
+
+  // Attach the kit + estimated cost so the UI can show the user what they are about to make.
+  return c.json({
+    ...sb,
+    brandKit: kit,
+    estimates: { durationSec: storyboardDuration(sb), spokenCharacters: spokenCharacters(sb) },
+  });
 });
 
 // 2. Storyboard -> voiceover + word timings + durations
