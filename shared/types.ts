@@ -36,6 +36,8 @@ export interface SeriesPoint {
 export interface StepItem {
   label: string;
   detail?: string;
+  /** Lucide icon name for this step, e.g. "zap", "users", "check". */
+  icon?: string;
 }
 
 export interface VisualData {
@@ -58,6 +60,12 @@ export interface VisualData {
 
   // step-flow
   steps?: StepItem[];
+
+  /**
+   * Icon for the visual, chosen by the LLM from the shared Lucide set.
+   * Ignored where an icon is implied by the data (a currency stat shows $).
+   */
+  icon?: string;
 
   // ui-frame
   /** 'browser' | 'phone'. */

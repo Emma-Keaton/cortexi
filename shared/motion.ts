@@ -227,15 +227,17 @@ export function staggerFor(count: number, fps: number): number {
  * Split a scene's budget across N ordered beats.
  *
  * Budget time per *element*, not per second of polish, and a viewer can only
- * track one moving thing at a time - so beats run sequentially, not overlapped.
+ * track one moving thing at a time - so beats are strictly sequential. The step
+ * is treated as the *gap* after a beat finishes, not as the offset between beat
+ * starts, which is what keeps a short scene from overlapping its own beats.
  */
 export function beatTimeline(count: number, totalMs: number, fps: number): MotionSpec[] {
   if (count <= 0) return [];
-  const step = staggerFor(count, fps);
-  const each = Math.max(0, totalMs - step * (count - 1)) / count;
+  const gap = staggerFor(count, fps);
+  const each = Math.max(0, (totalMs - gap * (count - 1)) / count);
   return Array.from({ length: count }, (_, i) => ({
     duration: each,
-    delay: i * step,
+    delay: i * (each + gap),
     ease: 'enter' as const,
   }));
 }

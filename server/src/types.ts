@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 
 export const WordTimingSchema = z.object({
   word: z.string(),
@@ -38,7 +38,8 @@ export const SceneSchema = z.object({
       axisLabel: z.string().optional(),
       reveal: z.enum(['grow', 'sweep', 'draw']).optional(),
       segments: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })).optional(),
-      steps: z.array(z.object({ label: z.string(), detail: z.string().optional() })).optional(),
+      steps: z.array(z.object({ label: z.string(), detail: z.string().optional(), icon: z.string().optional() })).optional(),
+      icon: z.string().optional(),
       chrome: z.enum(['browser', 'phone']).optional(),
       appName: z.string().optional(),
       url: z.string().optional(),

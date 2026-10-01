@@ -251,6 +251,11 @@ if (process.env.CORTEXI_TEST_LIVE) {
   });
 }
 
+// motion, visuals and genre routing
+
+const { runMotionTests } = await import('./motion.test.js');
+await runMotionTests(test);
+
 if (failures) {
   console.error(`\n${failures} test(s) FAILED`);
   process.exit(1);

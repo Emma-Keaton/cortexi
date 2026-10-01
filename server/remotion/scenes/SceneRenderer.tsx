@@ -3,8 +3,10 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, Easing
 import { fitText } from '@remotion/layout-utils';
 import type { Scene, Storyboard } from '../../src/types';
 import { assetUrl } from '../CortexiVideo';
+import { VisualCanvas } from './VisualCanvas';
 
-type Props = { scene: Scene; style: Storyboard['style'] };
+type Props = { scene: Scene; style: Storyboard['style']; /** Start frame of this scene in the composition, for the exit. */
+  from?: number };
 
 /** Crisp ease-out for entrances; feels deliberate rather than mechanical. */
 const ENTER = Easing.bezier(0.16, 1, 0.3, 1);
@@ -12,7 +14,7 @@ const ENTER = Easing.bezier(0.16, 1, 0.3, 1);
 const EXIT = Easing.in(Easing.cubic);
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
-export const SceneRenderer: React.FC<Props> = ({ scene, style }) => {
+export const SceneRenderer: React.FC<Props> = ({ scene, style, from }) => {
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
 
@@ -143,6 +145,18 @@ export const SceneRenderer: React.FC<Props> = ({ scene, style }) => {
     <AbsoluteFill style={{ ...bgStyle, color: style.textColor, overflow: 'hidden' }}>
       {bg.type === 'image' && bg.image && (
         <Img src={assetUrl(bg.image)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: bg.overlayOpacity }} />
+      )}
+      {/* The visual layer sits above the background and below the copy, so one
+          scene can carry a headline and a chart at once. Drawn by the same
+          function the browser encoder uses. */}
+      {scene.visual && scene.visual.kind !== 'none' && (
+        <VisualCanvas
+          visual={scene.visual}
+          style={style}
+          sceneMs={(frame / fps) * 1000}
+          globalMs={((frame + (from ?? 0)) / fps) * 1000}
+          sceneDurationMs={(scene.durationSec ?? 3) * 1000}
+        />
       )}
       {(scene.template === 'full-bleed' || scene.template === 'product-spotlight') && (
         <AbsoluteFill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: enter * presence }}>{media}</AbsoluteFill>

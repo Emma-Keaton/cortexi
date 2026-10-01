@@ -157,6 +157,85 @@ function wrap(ctx: CanvasRenderingContext2D, str: string, maxW: number): string[
   if (line) lines.push(line);
   return lines;
 }
+
+// --- icons -----------------------------------------------------------------
+
+/**
+ * Lucide icon geometry, inlined on a 24x24 viewBox.
+ *
+ * Deliberately not `import { TrendingUp } from 'lucide-react'`: `shared/` is also
+ * consumed by the server, and the video path carries no runtime deps. The data is
+ * ~1KB of strings; a React component would drag a DOM renderer into a canvas
+ * renderer. `lucide-react` is still used for the app's own UI.
+ */
+const ICONS: Record<string, string[]> = {
+  'trending-up': ['M16 7h6v6', 'm22 7-8.5 8.5-5-5L2 17'],
+  users: [
+    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+    'M16 3.128a4 4 0 0 1 0 7.744',
+    'M22 21v-2a4 4 0 0 0-3-3.87',
+  ],
+  zap: ['M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z'],
+  check: ['M20 6 9 17l-5-5'],
+  clock: ['M12 6v6h4', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+  'shield-check': [
+    'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+    'm9 12 2 2 4-4',
+  ],
+  rocket: [
+    'M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
+    'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09',
+    'M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z',
+    'M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05',
+  ],
+  dollar: ['M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8', 'M12 18V6'],
+  sparkles: [
+    'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z',
+    'M20 2v4',
+    'M22 4h-4',
+  ],
+  'arrow-right': ['M5 12h14', 'm12 5 7 7-7 7'],
+  gauge: ['m12 14 4-4', 'M3.34 19a10 10 0 1 1 17.32 0'],
+};
+
+export const iconNames = (): string[] => Object.keys(ICONS);
+
+/**
+ * Stroke an icon centred on (cx, cy) at `size` px.
+ *
+ * Stroke width is scaled with the icon so it stays visually consistent next to
+ * text - a hairline at 12px and a hairline at 64px do not read the same.
+ */
+export function drawIcon(
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+  alpha = 1,
+): boolean {
+  const paths = ICONS[name];
+  if (!paths) return false;
+  const k = size / 24;
+  ctx.save();
+  ctx.globalAlpha *= clamp01(alpha);
+  ctx.translate(cx - size / 2, cy - size / 2);
+  ctx.scale(k, k);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, 1.75 / k);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const d of paths) ctx.stroke(new Path2D(d));
+  ctx.restore();
+  return true;
+}
+
+/**
+ * Icons that suit a visual, in a fixed order. Deterministic by design: a scene
+ * that re-rolled its icons between preview and render would look like a bug.
+ */
+export const ICON_ROTATION = ['trending-up', 'users', 'dollar', 'zap', 'check', 'gauge'];
 export function formatValue(v: number, format = 'plain', prefix = '', suffix = ''): string {
   if (!Number.isFinite(v)) return `${prefix}0${suffix}`;
   if (format === 'percent') return `${prefix}${Math.round(v * (Math.abs(v) <= 1 ? 100 : 1))}%${suffix}`;
@@ -192,6 +271,13 @@ function drawStatCounter(d: DrawContext, p: Palette, area: Rect) {
   ctx.globalAlpha = clamp01(out);
   ctx.translate(cx, cy);
   ctx.scale(lerp(0.9, 1, g), lerp(0.9, 1, g));
+  // A soft icon above the figure gives the number a subject. It arrives before the
+// digits so the eye reads "what this is" then "how much".
+  const iconFade = clamp01(sample({ duration: DURATION.ui, ease: 'enter' }, t));
+  if (iconFade > 0.01) {
+    const name = (data.icon && ICONS[data.icon] ? data.icon : null) ?? (data.format === 'percent' ? 'gauge' : data.format === 'currency' ? 'dollar' : 'trending-up');
+    drawIcon(ctx, name, 0, -size * 0.72, size * 0.3, p.accent, iconFade * 0.9);
+  }
   text(ctx, shown, 0, 0, `700 ${size}px ${d.font}`, p.ink, 'center');
 
   if (data.caption) {
@@ -349,7 +435,15 @@ function drawStepFlow(d: DrawContext, p: Palette, area: Rect, fps: number) {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+    // A step carries either a number or an icon. An icon is chosen when the step is
+  // a named kind of thing (Connect, Verify, Ship) and a number when the order
+  // itself is the point.
+  const iconName = s.icon && ICONS[s.icon] ? s.icon : null;
+  if (iconName) {
+    drawIcon(ctx, iconName, cx, y, nodeR * 1.05, isFocus ? p.onPrimary : p.primary, g);
+  } else {
     text(ctx, String(i + 1), cx, y + labelSize * 0.34, `700 ${labelSize * 0.88}px ${d.font}`, isFocus ? p.onPrimary : p.primary, 'center');
+  }
 
     const tx = cx + nodeR + labelSize * 0.9;
     const fade = clamp01(sample({ duration: DURATION.ui, delay: delay + 90, ease: 'enter' }, t));
@@ -563,7 +657,19 @@ function drawUiFrame(d: DrawContext, p: Palette, area: Rect) {
           ctx.lineWidth = 1;
           ctx.stroke();
           // Value bar + label line: abstract, but the right proportions.
-          roundRect(ctx, x + pad * 0.5, y + gH * 0.3, gW * 0.42, gH * 0.15, 4);
+          // An icon in a tinted chip, then the value bar and a label line beneath. The
+          // chip is what makes the card read as a real UI surface rather than a
+          // stack of grey rectangles.
+          const chip = Math.min(gH * 0.34, gW * 0.2);
+          const chipX = x + pad * 0.5;
+          const chipY = y + gH * 0.18;
+          roundRect(ctx, chipX, chipY, chip, chip, chip * 0.28);
+          ctx.fillStyle = withAlpha(p.primary, 0.16);
+          ctx.fill();
+          const cardIcon = (n === 0 && d.visual.data?.icon && ICONS[d.visual.data.icon] ? d.visual.data.icon : ICON_ROTATION[n % ICON_ROTATION.length]);
+          drawIcon(ctx, cardIcon, chipX + chip / 2, chipY + chip / 2, chip * 0.58, p.primary, g);
+
+          roundRect(ctx, x + pad * 0.5 + chip + pad * 0.4, y + gH * 0.3, gW * 0.42 - chip, gH * 0.15, 4);
           ctx.fillStyle = withAlpha(p.primary, 0.9);
           ctx.fill();
           roundRect(ctx, x + pad * 0.5, y + gH * 0.58, gW * 0.66, gH * 0.09, 4);

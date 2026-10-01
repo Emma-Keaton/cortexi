@@ -184,3 +184,42 @@ The load-bearing rule is **never invent data**. A model asked for a "growth vide
 - Only `ui-frame` and `step-flow` are safe to synthesise, because neither asserts a fact.
 
 Verified: a `product` prompt auto-fills `ui-frame/dashboard` in the middle scene; a supplied `bar-chart` with real series survives; a `bar-chart` with no data is swapped for `ui-frame/cards`; a `data` prompt auto-fills nothing.
+
+## Delivery formats: WebM and WebP
+
+There is no WebP *video*. WebP is a still-image format: no audio track, and no
+mainstream browser will play an animated WebP through a `<video>` element. The
+request that started this was "WebP for the examples" - the goal behind it was
+size and playback, so that is what was built:
+
+- **Posters -> WebP.** `-c:v libwebp -quality 82`. A 1080p frame lands at ~22KB
+  against ~35KB for JPEG at visually identical quality. Every browser that can
+  run WebCodecs (which ours must, to encode) decodes WebP natively.
+- **Video -> WebM (VP9 + Opus), MP4 kept as fallback.** `crf 34 -b:v 0
+  -row-mt 1`. Typically 40-60% smaller than the H.264 MP4, and VP9 holds detail
+  better on exactly the content these videos contain: gradients and flat UI
+  fills. The showcase uses two `<source>` elements, so modern engines get the
+  smaller file and older Safari falls back to MP4.
+
+The MP4s are not deleted. They are the source the WebM is transcoded from and
+the compatibility floor.
+
+## Icons are chosen by the model, from one package
+
+`server/src/motionBrief.ts` publishes a fixed Lucide vocabulary to the planner
+along with what each icon *signals*, not just its name:
+
+    `shield-check` - guarantee, security, privacy, reliability
+    `sparkles`    - AI, magic, new-and-exciting (use sparingly - reads as hype)
+
+The distinction is the whole point. A `shield-check` beside a pricing claim says
+"guaranteed"; a `sparkles` beside the same claim says AI slop. A model shown only
+names picks the one that looks nicest; a model shown meanings picks the one that
+argues correctly. It sets `visual.data.icon`, or `icon` per step, and is told
+plainly not to invent names - a test asserts every advertised name actually
+renders.
+
+Icons are inlined as path data in `shared/visuals.ts` rather than imported from
+`lucide-react`. `shared/` is consumed by the server too, and the video path
+carries no runtime dependencies; a React component would drag a DOM renderer
+into a canvas renderer. `lucide-react` is still used for the app's own UI.

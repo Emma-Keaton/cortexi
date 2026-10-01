@@ -134,7 +134,20 @@ foreach ($c in $concepts) {
     $name = "$($c.slug).mp4"
     Copy-Item (Join-Path $base "assets\output\$($j.output.Split('/')[-1])") (Join-Path $pub $name) -Force
     # Poster: grab a frame from the middle so the title card is not half-faded.
-    cmd /c "ffmpeg -y -ss 1.2 -i `"$pub\$name`" -frames:v 1 -q:v 3 `"$pub\$($c.slug).jpg`" > NUL 2>&1"
+    Remove-Item "$pub\$($c.slug).jpg" -Force -ErrorAction SilentlyContinue
+    # WebP not JPEG: same frame at ~1/3 the bytes; every browser that can
+    # run WebCodecs decodes it natively. Decorative cards, so q82 is invisible.
+    $poster = Join-Path $pub "$($c.slug).webp"
+    & ffmpeg -y -ss 1.2 -i (Join-Path $pub $name) -frames:v 1 -c:v libwebp -quality 82 -compression_level 6 $poster 2>$null
+    # WebM (VP9 + Opus) alongside the MP4.
+    # There is no "WebP video" - WebP is a still-image format with no audio
+    # track, and no browser will play an animated one through <video>. WebM is
+    # the video sibling of the same idea: at CRF 34 with a 1080p source the
+    # file is typically 40-60% the size of the H.264 MP4, VP9 holds detail
+    # better on gradients and flat UI fills, and every browser that can run
+    # WebCodecs plays it natively. MP4 is kept as the fallback source.
+    $webm = Join-Path $pub "$($c.slug).webm"
+    & ffmpeg -y -i (Join-Path $pub $name) -c:v libvpx-vp9 -crf 34 -b:v 0 -row-mt 1 -cpu-used 4 -c:a libopus -b:a 96k $webm 2>$null
     W ('  DONE ' + $c.slug + ' -> ' + [math]::Round((Get-Item (Join-Path $pub $name)).Length / 1KB) + ' KB')
   } catch {
     W ('  render exception: ' + $_.Exception.Message)

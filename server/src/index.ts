@@ -1,4 +1,4 @@
-import { serve } from '@hono/node-server';
+﻿import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -12,6 +12,7 @@ import { generateStoryboard } from './llm.js';
 import { generateVoiceover } from './tts.js';
 import { enqueueRender, getJob } from './render.js';
 import { getSettings, saveSettings } from './settings.js';
+import { normalizeStoryboard } from './storyboard.js';
 import { StoryboardSchema } from './types.js';
 import { listAssets, registerAsset, removeAsset, deriveBrandKit, describeBrandKit, BrandAssetSchema } from './brandAssets.js';
 import { storyboardDuration, spokenCharacters } from './storyboard.js';
@@ -257,7 +258,11 @@ app.post('/api/render', async (c) => {
     }, 409);
   }
   const body = await c.req.json();
-  const sb = StoryboardSchema.parse(body.storyboard);
+  // Normalize at the render funnel, not just in the planner. Every storyboard
+  // passes through here, so a hand-authored or LLM-generated board gets its
+  // visuals filled and its invariants enforced identically. Normalizing only in
+  // the planner would miss boards arriving from anywhere else.
+  const sb = normalizeStoryboard(body.storyboard);
   const job = enqueueRender(sb, body.quality === 'final' ? 'final' : 'draft');
   return c.json({ jobId: job.id, renderMode: 'server' });
 });
@@ -292,14 +297,14 @@ async function startupTasks() {
   ];
   for (const [name, p] of checks) {
     try { await p; } catch {
-      console.warn(`[check] ${name} not found on PATH — some features will fall back or fail. See README prerequisites.`);
+      console.warn(`[check] ${name} not found on PATH â€” some features will fall back or fail. See README prerequisites.`);
     }
   }
   if (!process.env.CORTEXI_CHROME) {
-    console.warn('[check] CORTEXI_CHROME not set — will auto-detect a local Chrome/Edge.');
+    console.warn('[check] CORTEXI_CHROME not set â€” will auto-detect a local Chrome/Edge.');
   }
   if (!process.env.CORTEXI_GROQ_KEY && !process.env.CORTEXI_GEMINI_KEY) {
-    console.log('[check] No server-side LLM key set — users can paste their own key in the UI.');
+    console.log('[check] No server-side LLM key set â€” users can paste their own key in the UI.');
   }
 
   // Output retention: keep only the newest KEEP_OUTPUTS renders.
@@ -319,6 +324,6 @@ async function startupTasks() {
 }
 
 serve({ fetch: app.fetch, port, hostname: host }, (info) => {
-  console.log(`\n  Cortexi server running → http://localhost:${info.port} (bound to ${host})\n`);
+  console.log(`\n  Cortexi server running â†’ http://localhost:${info.port} (bound to ${host})\n`);
   void startupTasks();
 });

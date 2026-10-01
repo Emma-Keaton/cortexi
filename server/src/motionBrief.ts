@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The motion brief: how the LLM is taught to use the visual system.
  *
  * Everything in the prompt below is distilled from the motion skills we vendored
@@ -142,6 +142,53 @@ export const VISUAL_GUIDE: Record<string, string> = {
   none: 'No visual. Use for statements, transitions and the closing line.',
 };
 
+export const ICON_SET = [
+  'trending-up', 'users', 'dollar', 'zap', 'check', 'gauge', 'clock', 'shield-check',
+  'rocket', 'sparkles', 'arrow-right',
+] as const;
+
+/**
+ * What each icon *means* here, so the model picks by meaning rather than by
+ * what looks nice. A "shield-check" beside a pricing claim says "guaranteed";
+ * a "sparkles" beside the same claim says "AI slop". That difference is the whole
+ * job of choosing an icon.
+ */
+const ICON_MEANING: Record<string, string> = {
+  'trending-up': 'growth, increase, a metric going up',
+  users: 'people, audience, team, community',
+  dollar: 'money, revenue, price, cost',
+  zap: 'speed, automation, something instant',
+  check: 'a completed or verified thing',
+  gauge: 'percentage, share, rate, score out of 100',
+  clock: 'time, speed, latency, schedule',
+  'shield-check': 'guarantee, security, privacy, reliability',
+  rocket: 'launch, ship, growth, going fast',
+  sparkles: 'AI, magic, new-and-exciting (use sparingly - it reads as hype)',
+  'arrow-right': 'next step, onward, continuation',
+};
+
+const iconGuide = (): string =>
+  [
+    '### Icons',
+    '',
+    'Icons come from one package: **Lucide**, drawn as 2px strokes on a 24x24 grid,',
+    'tinted with the brand primary. They are used as accent, never as decoration.',
+    '',
+    'Available icons and what each one signals:',
+    ...Object.entries(ICON_MEANING).map(([k, v]) => `  \`${k}\` - ${v}`),
+    '',
+    'How to use them:',
+    '- Set `visual.data.icon` to the icon that matches the *meaning* of the scene.',
+    '- For step-flow, set `icon` on each step; each step gets a different icon when',
+    '  the steps differ in kind, and the same one only when they are genuinely alike.',
+    '- Choose by meaning, never by prettiness. An icon that contradicts its claim',
+    '  (a "shield" on a pricing claim) is worse than no icon at all.',
+    '- Do not put an icon on every visual. A scene with a chart already has a',
+    '  subject. One icon per scene at most.',
+    '- Do not invent icon names. If nothing fits, omit the field and the visual',
+    '  renders without one.',
+  ].join('\n');
+
 /**
  * The block appended to the system prompt.
  *
@@ -204,5 +251,7 @@ draw on, UI elements stagger in. Never specify timing, keyframes or durations.
   stagger reads as noise.
 - Reserve the strongest visual for the scene with the strongest point, usually
   the second or third. If everything is a chart, nothing is.
+
+${iconGuide()}
 `.trim();
 }
