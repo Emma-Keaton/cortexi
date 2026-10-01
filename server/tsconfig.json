@@ -1,4 +1,4 @@
-{
+﻿{
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -10,5 +10,6 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["src", "remotion"]
+  "include": ["src", "remotion", "../shared"]
 }
+

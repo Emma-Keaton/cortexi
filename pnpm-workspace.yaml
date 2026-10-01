@@ -3,3 +3,6 @@ packages:
   - web
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@remotion/lottie@4.0.531'
+  - remotion@4.0.531

@@ -21,6 +21,38 @@ export const SceneSchema = z.object({
   motion: z.object({ entrance: z.enum(['fade', 'fade-up', 'zoom', 'slide-left', 'slide-right', 'mask-reveal']).default('fade-up'), intensity: z.number().min(0).max(1).default(.45) }).optional(),
   background: z.object({ type: z.enum(['color', 'gradient', 'split', 'image']).default('color'), secondaryColor: z.string().optional(), image: z.string().optional(), overlayOpacity: z.number().min(0).max(1).default(.2) }).optional(),
   animation: z.enum(['fade-up', 'zoom', 'slide-left', 'slide-right', 'mask-reveal']).default('fade-up'),
+  /**
+   * An infographic / UI / vector composition drawn by the visual library.
+   * Independent of `template`: a scene can carry a headline AND a chart, or
+   * either alone.
+   */
+  visual: z.object({
+    kind: z.enum(['none', 'stat-counter', 'bar-chart', 'line-chart', 'donut', 'step-flow', 'ui-frame', 'lottie']).default('none'),
+    data: z.object({
+      value: z.number().optional(),
+      format: z.enum(['plain', 'percent', 'currency', 'compact']).optional(),
+      prefix: z.string().optional(),
+      suffix: z.string().optional(),
+      caption: z.string().optional(),
+      series: z.array(z.object({ label: z.string(), value: z.number() })).optional(),
+      axisLabel: z.string().optional(),
+      reveal: z.enum(['grow', 'sweep', 'draw']).optional(),
+      segments: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })).optional(),
+      steps: z.array(z.object({ label: z.string(), detail: z.string().optional() })).optional(),
+      chrome: z.enum(['browser', 'phone']).optional(),
+      appName: z.string().optional(),
+      url: z.string().optional(),
+      layout: z.enum(['nav', 'cards', 'rows', 'dashboard']).optional(),
+      accentLottie: z.string().optional(),
+      src: z.string().optional(),
+      fromSeconds: z.number().optional(),
+      toSeconds: z.number().optional(),
+      loop: z.boolean().optional(),
+      tint: z.string().optional(),
+    }).optional(),
+    height: z.number().min(0.2).max(0.9).optional(),
+    focusIndex: z.number().int().min(0).optional(),
+  }).optional(),
   audioFile: z.string().optional(),
   durationSec: z.number().optional(),
   words: z.array(WordTimingSchema).optional(),

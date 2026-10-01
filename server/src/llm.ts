@@ -1,18 +1,22 @@
 ﻿import type { Storyboard } from './types.js';
 import { normalizeStoryboard } from './storyboard.js';
+import { motionBrief, classifyGenre } from './motionBrief.js';
 
-const SYSTEM = `You are a video storyboard planner. Given a user's description of the video they want (brand promo, explainer, intro, etc.), output ONLY valid JSON matching this exact schema, no markdown fences:
+const SYSTEM = `You are a video storyboard planner. Given a user's description of the video they want, output ONLY valid JSON matching this exact schema, no markdown fences:
 {
   "title": string,
   "scenes": [
-    { "id": "s1", "template": "title-card"|"feature"|"outro", "headline": string (max 8 words), "body": string (max 25 words, optional), "animation": "fade-up"|"zoom"|"slide-left" }
+    { "id": "s1", "template": "title-card"|"feature"|"outro", "headline": string (max 8 words), "body": string (max 25 words, optional), "animation": "fade-up"|"zoom"|"slide-left"|"slide-right"|"mask-reveal", "visual": { "kind": string, "data": object } (optional) }
   ]
 }
 Rules:
 - First scene MUST be "title-card", last scene MUST be "outro" with a call to action.
 - 3 to 6 scenes total. "feature" scenes in the middle each highlight ONE point.
 - Keep text short and punchy - it will be spoken as voiceover and shown on screen.
-- body text of each scene is exactly what the voiceover will say.`;
+- body text of each scene is exactly what the voiceover will say.
+- A scene may carry a "visual". It is drawn as an animated infographic or UI mockup.
+  The specific visual kinds and their data schemas are described in the user message,
+  along with the required scene structure. Follow them exactly.`;
 
 /** Generate a storyboard via Groq (OpenAI-compatible) or Gemini free tier. Falls back to rule-based. */
 /**
@@ -34,6 +38,9 @@ function buildPlannerPrompt(
     parts.push(`Brand style (must be respected): ${JSON.stringify(opts.brandStyle)}`);
   }
   parts.push('Vary the composition templates. Keep each scene headline under 6 words. First scene is the title card, last scene is the outro with a call to action.');
+  // The motion brief carries the genre-specific scene shape and the visual
+  // schemas. Without it the model falls back to title cards and invents numbers.
+  parts.push(motionBrief(classifyGenre(prompt)));
   return parts.join('\n\n');
 }
 

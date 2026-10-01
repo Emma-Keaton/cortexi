@@ -142,3 +142,45 @@ new one first:
 ```bash
 edge-tts --voice en-US-XxxNeural --text "Test" --write-media /tmp/t.mp3
 ```
+
+## Motion, visuals and the animation stack
+
+### What was researched
+
+| Tool | Verdict |
+|---|---|
+| **Motion** (`motion` 13.4.6, ex-Framer Motion) | Its engine exposes `sample(time)` - a headless, seekable sampler. Real, but we reimplemented the same seam in `shared/motion.ts` so the video path has **zero** animation dependencies and stays deterministic. Used for app-UI motion instead. |
+| **Lottie** (`@lottiefiles/dotlottie-web` 0.80, `lottie-web` 5.13, `@remotion/lottie` 4.0.531) | Installed and supported as `visual.kind: "lottie"`. See the two corrections below. |
+| **Remotion** | Unchanged role: the optional server-side render path. |
+| **motion-skills** (iart-ai, MIT) | Vendored into `skills-src/` (39 files). This is where the timing numbers came from. |
+| **HyperFrames** | `@hyperframes/lottie`, `/animation`, `/motion`, `/transitions` are **not published to npm** - only `engine`/`core`/`player`/`shader-transitions` (0.8.97) exist. Its producer is Puppeteer+FFmpeg, i.e. server-side, which is the thing we deliberately removed by moving encoding to the client. Patterns adopted, package not adopted. |
+
+**Correction 1 - `lottie_light` is SVG-only.** The Airbnb wiki is explicit: "supports only the svg renderer... canvas and html renderers are not supported." Since we encode via WebCodecs, a visual that cannot draw into a 2D context is useless. Full `lottie-web` (canvas renderer + `rendererSettings.context` for a shared context) and dotLottie (canvas + WASM) are the working options.
+
+**Correction 2 - determinism is a seek, not a play.** Per HyperFrames' own Lottie reference: "Lottie animations encode their own deterministic timeline... neither Remotion nor HF animate them, both just seek them." Lottie is created with `autoplay: false` and seeked with `goToAndStop(t * 1000)` - milliseconds, not frames, for precision when the asset's internal fps differs from ours.
+
+### The visual system
+
+`shared/visuals.ts` draws seven compositions to canvas: `stat-counter`, `bar-chart`, `line-chart`, `donut`, `step-flow`, `ui-frame`, `lottie`.
+
+They are drawn rather than DOM-composed **on purpose**. Encoding to H.264 with WebCodecs means every visual must land in a 2D context we own. Implementing each infographic twice - React DOM for preview, canvas for output - guarantees drift, and a preview that lies is worse than none. So one function per visual, called by every path.
+
+`shared/motion.ts` holds the timing vocabulary, distilled from the skills:
+
+- **Easing by intent.** Enter `cubic-bezier(0.16,1,0.3,1)`, exit `(0.7,0,0.84,0)`, move `(0.65,0,0.35,1)`, overshoot `(0.34,1.56,0.64,1)`. Symmetric ease-in-out on an entrance is the most common reason motion reads as generic.
+- **Spring solved in closed form.** A damped harmonic oscillator, not an integrator - a numeric integrator drifts with call pattern and would break reproducibility. Presets tuned from the skills: `pop` (180/10/0.5), `enter` (170/14/0.6), `settle` (no overshoot, for numbers).
+- **Stagger 6-8 frames**, dropping to 5 past 8 items; above ~15 it stops reading as a sequence and starts dragging.
+- **Counters round before formatting** and ease-out on the value. Overshoot is applied to scale only - a number that visibly overshoots 100% would be a lie.
+- **Every visual ends fully assembled and holds.** The final frame is what the viewer remembers.
+
+### Genre routing and the LLM brief
+
+`server/src/motionBrief.ts` classifies the prompt into `data | product | tutorial | launch | brand | general`, each with a fixed scene shape, and injects that plus the visual schemas into the planner prompt.
+
+The load-bearing rule is **never invent data**. A model asked for a "growth video" will cheerfully invent a bar chart, and a fabricated chart is worse than no chart: it is a lie the viewer cannot detect. So:
+
+- Numeric visuals are never auto-filled. If the user supplied no numbers, the scene gets `visual: {kind:"none"}` and the copy carries it.
+- A chart that arrives without data is replaced rather than rendered as an empty axis (`coerceVisual`).
+- Only `ui-frame` and `step-flow` are safe to synthesise, because neither asserts a fact.
+
+Verified: a `product` prompt auto-fills `ui-frame/dashboard` in the middle scene; a supplied `bar-chart` with real series survives; a `bar-chart` with no data is swapped for `ui-frame/cards`; a `data` prompt auto-fills nothing.

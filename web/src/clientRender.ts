@@ -1,4 +1,5 @@
-﻿/**
+﻿import { drawVisual } from '../../shared/visuals';
+/**
  * Cortexi client-side renderer.
  *
  * Renders storyboard scenes to a canvas in real time, captures that canvas
@@ -64,8 +65,12 @@ function drawScene(
   width: number,
   height: number,
   elapsed: number,
+  globalElapsed = 0,
 ): void {
   const { style } = storyboard;
+  const sceneMs = elapsed * 1000;
+  const globalMs = globalElapsed * 1000;
+  const sceneDurMs = (scene.durationSec ?? 4) * 1000;
   ctx.fillStyle = style.backgroundColor || '#0A0A0E';
   ctx.fillRect(0, 0, width, height);
 
@@ -86,8 +91,21 @@ function drawScene(
     ctx.globalAlpha = 1;
   }
 
-  const headlineSize = Math.round(height * 0.075);
-  const bodySize = Math.round(height * 0.038);
+  const hasVisual = drawVisual({
+    ctx,
+    w: width,
+    h: height,
+    t: sceneMs,
+    globalT: globalMs,
+    sceneDurationMs: sceneDurMs,
+    fps: storyboard.fps ?? 30,
+    style: { ...style, font: style.font || 'Inter, sans-serif' },
+    visual: scene.visual ?? { kind: 'none' },
+    font: style.font || 'Inter, sans-serif',
+  });
+  // With a visual present, the copy moves up to make room for it.
+  const headlineSize = Math.round(height * (hasVisual ? 0.062 : 0.075));
+  const bodySize = Math.round(height * (hasVisual ? 0.032 : 0.038));
   const pad = Math.round(width * 0.08);
   const t = Math.min(1, elapsed / 0.6);
   let offsetX = 0;
@@ -312,7 +330,7 @@ async function recordScenes(
         if (elapsed < acc + s.duration) { current = s; local = elapsed - acc; break; }
         acc += s.duration;
       }
-      drawScene(ctx, current, storyboard, width, height, local);
+      drawScene(ctx, current, storyboard, width, height, local, elapsed);
       onProgress?.({ phase: 'rendering', percent: Math.round((elapsed / totalDuration) * 95) });
       const targetFrame = Math.floor((performance.now() - start) / (1000 / fps));
       const nextDelay = Math.max(0, targetFrame * (1000 / fps) - (performance.now() - start) + 1000 / fps);

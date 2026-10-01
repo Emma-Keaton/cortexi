@@ -1,5 +1,7 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import { StoryboardSchema, type Storyboard } from './types.js';
+import { classifyGenre, recipeFor } from './motionBrief.js';
+import type { Genre, SceneVisual, StepItem } from '../../shared/types.js';
 
 /**
  * Storyboard post-processing.
@@ -67,11 +69,75 @@ export function normalizeStoryboard(input: z.input<typeof StoryboardSchema>): St
     }
   }
 
+  scenes = withVisuals(scenes, parsed);
+
   return StoryboardSchema.parse({
     ...parsed,
     title: (parsed.title || 'Untitled Video').trim(),
     scenes: scenes.length >= MIN_SCENES ? scenes : padToMinimum(scenes, parsed),
   });
+}
+
+/**
+ * Give every scene a visual, whether or not the model supplied one.
+ *
+ * A video with no visuals is the failure mode that makes AI video look cheap. But
+ * we cannot invent data, so this fills from the genre recipe only where it is
+ * safe (ui-frame, step-flow) and leaves numeric visuals to the model. It also
+ * enforces the one-visual-per-scene rule, dropping extras the model hallucinated
+ * in a scene that already has text to carry.
+ */
+function withVisuals(
+  scenes: Storyboard['scenes'],
+  parsed: z.infer<typeof StoryboardSchema>,
+): Storyboard['scenes'] {
+  const genre = classifyGenre(`${parsed.title || ''} ${scenes.map((s) => s.headline).join(' ')}`);
+  const recipe = recipeFor(genre);
+  return scenes.map((s, i) => {
+    const shape = recipe.shapes[i] ?? recipe.shapes[recipe.shapes.length - 1];
+    const has = s.visual && s.visual.kind && s.visual.kind !== 'none';
+
+    // The model already chose: trust it, but never trust its shape.
+    if (has) return { ...s, visual: coerceVisual(s.visual!, genre) };
+
+    // First and last scenes are the hook and the close: text only.
+    const isEdge = i === 0 || i === scenes.length - 1;
+    const fill = !isEdge && shape.v !== 'none' && shape.v !== 'stat-counter' && shape.v !== 'line-chart' && shape.v !== 'bar-chart' && shape.v !== 'donut';
+    if (!fill) return { ...s, visual: { kind: 'none' } };
+
+    const visual: SceneVisual = shape.v === 'step-flow'
+      ? { kind: 'step-flow', data: { steps: deriveSteps(s) } }
+      : { kind: 'ui-frame', data: { chrome: 'browser', layout: i % 2 ? 'dashboard' : 'cards', appName: parsed.title?.split(/\s+/)[0] } };
+    return { ...s, visual };
+  });
+}
+
+/** Break a scene's body or headline into short ordered steps. */
+function deriveSteps(s: { headline?: string; body?: string }): StepItem[] {
+  const source = (s.body || s.headline || '').replace(/[.!?]+$/, '');
+  const parts = source.split(/\s*(?:,|;|->|â†’|\band\b|\bthen\b)\s*/i).filter(Boolean);
+  const picked = (parts.length >= 2 ? parts : [source]).slice(0, 4);
+  return picked.map((p) => ({
+    label: p.split(/\s+/).slice(0, 3).join(' '),
+    detail: p.split(/\s+/).slice(3, 9).join(' '),
+  }));
+}
+
+/** Drop hallucinated numeric visuals that arrived without any data. */
+function coerceVisual(v: SceneVisual, genre: Genre): SceneVisual {
+  const numeric = new Set(['stat-counter', 'bar-chart', 'line-chart', 'donut']);
+  if (!numeric.has(v.kind)) return v;
+  const d = v.data ?? {};
+  const hasSeries = Array.isArray(d.series) && d.series.length > 1;
+  const hasSegments = Array.isArray(d.segments) && d.segments.length > 0;
+  const hasValue = typeof d.value === 'number' && Number.isFinite(d.value) && d.value !== 0;
+  // No real data behind a chart: drop it rather than render an empty axis.
+  if (v.kind === 'stat-counter' ? !hasValue : v.kind === 'donut' ? !hasSegments : !hasSeries) {
+    const fallback = recipeFor(genre).shapes.find((x) => x.v === 'ui-frame' || x.v === 'step-flow');
+    if (fallback && fallback.v === 'step-flow') return { kind: 'step-flow' };
+    return { kind: 'ui-frame', data: { chrome: 'browser', layout: 'cards' } };
+  }
+  return v;
 }
 
 /** If the model returned fewer than MIN_SCENES scenes, synthesise a valid arc. */

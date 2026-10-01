@@ -1,4 +1,6 @@
-﻿export type Word = { word: string; start: number; end: number };
+﻿import type { SceneVisual } from '../../shared/types';
+
+export type Word = { word: string; start: number; end: number };
 
 export type Scene = {
   id: string;
@@ -10,6 +12,7 @@ export type Scene = {
   image?: string;
   imageRole?: 'product' | 'background' | 'foreground' | 'logo';
   animation: string;
+  visual?: SceneVisual;
   audioFile?: string;
   durationSec?: number;
   words?: Word[];
