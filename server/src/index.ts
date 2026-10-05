@@ -276,6 +276,11 @@ app.get('/api/jobs/:id', (c) => {
 // Static: generated audio, uploads, rendered output.
 // NOTE: serveStatic joins req.path onto root, so strip the /assets prefix
 // (otherwise it looks for assets/assets/... and falls through to the SPA shell).
+// CORS first so a separately-hosted frontend (e.g. the Vercel web build) can
+// fetch generated audio / uploads cross-origin from this backend.
+app.use('/assets/*', cors({
+  origin: (o) => (o && allowedOrigins.has(o) ? o : null),
+}));
 app.use('/assets/*', serveStatic({
   root: ASSETS_DIR,
   rewriteRequestPath: (p) => p.replace(/^\/assets/, ''),
