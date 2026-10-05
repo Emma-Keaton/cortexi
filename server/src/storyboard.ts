@@ -1,7 +1,7 @@
 ﻿import { z } from 'zod';
 import { StoryboardSchema, type Storyboard } from './types.js';
 import { classifyGenre, recipeFor } from './motionBrief.js';
-import type { Genre, SceneVisual, StepItem } from '../../shared/types.js';
+import type { Genre, SceneVisual, StepItem, VisualKind } from '../../shared/types.js';
 
 /**
  * Storyboard post-processing.
@@ -102,25 +102,83 @@ function withVisuals(
 
     // First and last scenes are the hook and the close: text only.
     const isEdge = i === 0 || i === scenes.length - 1;
-    const fill = !isEdge && shape.v !== 'none' && shape.v !== 'stat-counter' && shape.v !== 'line-chart' && shape.v !== 'bar-chart' && shape.v !== 'donut';
+    const fill = !isEdge && shape.v !== 'none' && shape.v !== 'stat-counter' && shape.v !== 'line-chart' && shape.v !== 'bar-chart' && shape.v !== 'donut' && shape.v !== 'lottie';
     if (!fill) return { ...s, visual: { kind: 'none' } };
-
-    const visual: SceneVisual = shape.v === 'step-flow'
-      ? { kind: 'step-flow', data: { steps: deriveSteps(s) } }
-      : { kind: 'ui-frame', data: { chrome: 'browser', layout: i % 2 ? 'dashboard' : 'cards', appName: parsed.title?.split(/\s+/)[0] } };
-    return { ...s, visual };
+    return { ...s, visual: autoVisual(shape.v, s, parsed, i) };
   });
 }
 
 /** Break a scene's body or headline into short ordered steps. */
 function deriveSteps(s: { headline?: string; body?: string }): StepItem[] {
   const source = (s.body || s.headline || '').replace(/[.!?]+$/, '');
-  const parts = source.split(/\s*(?:,|;|->|â†’|\band\b|\bthen\b)\s*/i).filter(Boolean);
+  const parts = source.split(/\s*(?:,|;|->|\u2192|\band\b|\bthen\b)\s*/i).filter(Boolean);
   const picked = (parts.length >= 2 ? parts : [source]).slice(0, 4);
   return picked.map((p) => ({
     label: p.split(/\s+/).slice(0, 3).join(' '),
     detail: p.split(/\s+/).slice(3, 9).join(' '),
   }));
+}
+
+/** Pull a few short, meaningful words out of a scene for a word cloud. */
+function deriveCloud(s: { headline?: string; body?: string }): { text: string; weight: number }[] {
+  const words = (s.body || s.headline || '')
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9]/gi, ''))
+    .filter((w) => w.length > 3)
+    .slice(0, 5);
+  const terms = words.length >= 3 ? words : ['Core', 'Fast', 'Simple'];
+  return terms.map((text, i) => ({ text, weight: 5 - i }));
+}
+
+/**
+ * Auto-fill a visual when a scene has none, from the genre recipe's shape.
+ * Every kind gets safe, data-appropriate defaults so a scene never renders an
+ * empty axis. Numeric kinds are excluded up front; lottie needs a URL so it
+ * also is excluded here.
+ */
+function autoVisual(
+  kind: VisualKind,
+  s: { headline?: string; body?: string },
+  parsed: z.infer<typeof StoryboardSchema>,
+  i: number,
+): SceneVisual {
+  switch (kind) {
+    case 'step-flow':
+      return { kind: 'step-flow', data: { steps: deriveSteps(s) } };
+    case 'chat':
+      return {
+        kind: 'chat',
+        data: {
+          bubbles: [
+            { text: (s.headline || "Let's set that up").slice(0, 42), side: 'right' },
+            { text: (s.body || 'Done in a few clicks.').slice(0, 42), side: 'left' },
+          ],
+        },
+      };
+    case 'notify':
+      return { kind: 'notify', data: { caption: s.headline || 'Something just changed', icon: 'zap' } };
+    case 'icon-grid':
+      return { kind: 'icon-grid', data: { cells: [] } };
+    case 'hub':
+      return {
+        kind: 'hub',
+        data: { center: (parsed.title || 'Core').split(/\s+/)[0], nodes: deriveSteps(s).slice(0, 3).map((x) => ({ label: x.label })) },
+      };
+    case 'word-cloud':
+      return { kind: 'word-cloud', data: { terms: deriveCloud(s) } };
+    case 'collage':
+      return { kind: 'collage', data: { count: 4, caption: s.headline } };
+    case 'logo-strip':
+      return { kind: 'logo-strip', data: { count: 2 } };
+    case 'hero-shape':
+      return { kind: 'hero-shape', data: { caption: s.headline } };
+    case 'burst':
+      return { kind: 'burst', data: { caption: (s.headline || 'Live').split(' ').slice(0, 2).join(' ') } };
+    case 'split-panel':
+      return { kind: 'split-panel', data: { caption: s.headline, count: 5 } };
+    default:
+      return { kind: 'ui-frame', data: { chrome: 'browser', layout: i % 2 ? 'dashboard' : 'cards', appName: parsed.title?.split(/\s+/)[0] } };
+  }
 }
 
 /** Drop hallucinated numeric visuals that arrived without any data. */

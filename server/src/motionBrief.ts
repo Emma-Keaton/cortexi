@@ -37,6 +37,7 @@ export const GENRE_RECIPES: GenreRecipe[] = [
       { v: 'bar-chart', text: true, beat: 'Where that number comes from - compare across groups' },
       { v: 'line-chart', text: true, beat: 'How it moved over time' },
       { v: 'donut', text: true, beat: 'The proportion, stated plainly' },
+      { v: 'hub', text: true, beat: 'Everything routes through one system' },
       { v: 'none', text: true, beat: 'What it means for the viewer' },
     ],
   },
@@ -47,8 +48,9 @@ export const GENRE_RECIPES: GenreRecipe[] = [
     shapes: [
       { v: 'none', text: true, beat: "Name the problem in the viewer's own words" },
       { v: 'ui-frame', text: true, beat: 'Show the product doing the one thing it is good at' },
+      { v: 'hero-shape', text: true, beat: 'Reveal the object that carries the promise' },
       { v: 'stat-counter', text: true, beat: 'The outcome, as a number' },
-      { v: 'ui-frame', text: true, beat: 'Show the second moment - the part that wins them over' },
+      { v: 'chat', text: true, beat: 'The moment a user actually gets it' },
       { v: 'step-flow', text: true, beat: 'How to start, in three steps' },
     ],
   },
@@ -69,7 +71,8 @@ export const GENRE_RECIPES: GenreRecipe[] = [
       /\b(launch|announc|new|introduc|reveal|ship|release|now live|coming soon|unveil)\b/i,
     shapes: [
       { v: 'none', text: true, beat: 'The tension before' },
-      { v: 'ui-frame', text: true, beat: 'Reveal the thing itself' },
+      { v: 'hero-shape', text: true, beat: 'Reveal the thing itself' },
+      { v: 'burst', text: true, beat: 'The one-word punchline' },
       { v: 'stat-counter', text: true, beat: 'Why now, as a number' },
       { v: 'none', text: true, beat: 'The ask' },
     ],
@@ -81,7 +84,8 @@ export const GENRE_RECIPES: GenreRecipe[] = [
     shapes: [
       { v: 'none', text: true, beat: 'Open on a single strong claim' },
       { v: 'lottie', text: true, beat: 'A signature motion moment' },
-      { v: 'ui-frame', text: true, beat: 'The product in context' },
+      { v: 'word-cloud', text: true, beat: 'What people keep saying' },
+      { v: 'logo-strip', text: true, beat: 'Who is already on board' },
       { v: 'none', text: true, beat: 'Close on the line you want remembered' },
     ],
   },
@@ -90,6 +94,7 @@ export const GENRE_RECIPES: GenreRecipe[] = [
     signals: /.^/,
     shapes: [
       { v: 'none', text: true, beat: 'Open on the sharpest claim' },
+      { v: 'icon-grid', text: true, beat: 'The set of things it does' },
       { v: 'ui-frame', text: true, beat: 'Show it' },
       { v: 'stat-counter', text: true, beat: 'Prove it' },
       { v: 'step-flow', text: true, beat: 'Make it concrete' },
@@ -137,6 +142,26 @@ export const VISUAL_GUIDE: Record<string, string> = {
     'visual:{kind:"step-flow",data:{steps:[{label:"Connect",detail:"OAuth in one click"}]}} - 3-5 ordered steps. Steps are verbs, not nouns. No `headline` needed; the steps carry the text.',
   'ui-frame':
     'visual:{kind:"ui-frame",data:{chrome:"browser"|"phone",appName:"Acme",url:"acme.com",layout:"dashboard"|"cards"|"rows"|"nav"}} - an abstract product mock. Never use for a brand film with no product.',
+  'chat':
+    'visual:{kind:"chat",data:{bubbles:[{text:"One line",side:"right"|"left"}]}} - 2-3 short conversation bubbles, one in the accent colour. Use for a "what it feels like" moment. Keep each bubble under 6 words.',
+  'notify':
+    'visual:{kind:"notify",data:{caption:"Your plan was updated",icon:"zap"}} - a single notification pill that drops in. One short caption, one icon. Use when something just changed for the viewer.',
+  'icon-grid':
+    'visual:{kind:"icon-grid",data:{cells:["zap","shield-check","rocket"]}} - a bento of 2-6 icon tiles, first one focal. Use to list capabilities at a glance. Icons come from the shared Lucide set.',
+  'hub':
+    'visual:{kind:"hub",data:{center:"Router",nodes:[{label:"API"},{label:"Web"}]}} - a central node with 2-4 orbiting pills. Use for "everything routes through one thing". Set `center` and short node labels.',
+  'word-cloud':
+    'visual:{kind:"word-cloud",data:{terms:[{text:"Fastest",weight:5},{text:"Local",weight:3}]}} - words sized by importance. Use to show what people say / what is covered. 3-6 terms; the first is the loudest.',
+  'collage':
+    'visual:{kind:"collage",data:{count:4,caption:"One shot, many uses"}} - a loose cluster of photo tiles with a caption. Use for "look at all of these" without real photos.',
+  'logo-strip':
+    'visual:{kind:"logo-strip",data:{count:2}} - a marquee strip of partner or product tiles. Use for social proof. 1-3 rows; no invented brand names.',
+  'hero-shape':
+    'visual:{kind:"hero-shape",data:{caption:"The one object"}} - a single product tile that lifts in with a highlight sweep. Use to reveal the one thing that matters. One short caption.',
+  'burst':
+    'visual:{kind:"burst",data:{caption:"Live"}} - a divider flourish: an expanding line with a rotating star. Use as a beat between sections, or to land a one-word punchline.',
+  'split-panel':
+    'visual:{kind:"split-panel",data:{caption:"Fast",count:5}} - an accent panel carrying a claim beside a list of supporting bars. Use to pair a claim with detail.',
   lottie:
     'visual:{kind:"lottie",data:{src:"https://.../anim.json",tint:"#RRGGBB"}} - a real vector asset. Only when a URL is available; omit otherwise, the renderer falls back safely.',
   none: 'No visual. Use for statements, transitions and the closing line.',

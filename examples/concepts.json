@@ -48,6 +48,23 @@
         { "template": "split-feature", "eyebrow": "Adaptive ANC", "headline": "Reads The Room", "body": "Eight hundred adjustments every single second." },
         { "template": "outro", "eyebrow": "Available", "headline": "Shipping This Spring", "body": "Three finishes. One signature sound.", "ctaLabel": "Hear The Difference" }
       ]
+    },
+    {
+      "slug": "momentum-motion",
+      "brand": "Momentum",
+      "tagline": "Motion, Made",
+      "badge": "Motion Graphics",
+      "aspect": "16:9",
+      "superPrompt": "A 24-second motion-graphics spot for Momentum, the flat-shape way to build a launch film. Open on a near-black title card reading 'Momentum' with a single cyan accent rule. Then one flat move per scene: a hero tile that lifts into frame, a hub with three nodes routing through it, a gliding strip of partners, and a divider that lands the one word that matters. Palette: near-black field, electric cyan accent, white type, one accent doing all the work. Voice: fast and confident, like a director calling the last take.",
+      "palette": { "primary": "#22D3EE", "secondary": "#0E7490", "background": "#0A0A0E", "text": "#FFFFFF" },
+      "voice": { "engine": "edge-tts", "voice": "en-US-GuyNeural" },
+      "scenes": [
+        { "template": "title-card", "eyebrow": "Introducing", "headline": "Momentum", "body": "Motion graphics, made simple.", "ctaLabel": "" },
+        { "template": "feature", "eyebrow": "The Object", "headline": "One flat tile", "body": "It lifts in, holds, then gets out of the way.", "visual": { "kind": "hero-shape", "data": { "caption": "The object" } } },
+        { "template": "feature", "eyebrow": "Routing", "headline": "Three inputs, one center", "body": "Everything routes through a single hub.", "visual": { "kind": "hub", "data": { "center": "Core", "nodes": [ { "label": "API" }, { "label": "Web" }, { "label": "Mobile" } ] } } },
+        { "template": "feature", "eyebrow": "Proof", "headline": "Already on board", "body": "A strip of partners glides by.", "visual": { "kind": "logo-strip", "data": { "count": 2 } } },
+        { "template": "outro", "eyebrow": "Now", "headline": "Momentum", "body": "Ship it today.", "ctaLabel": "Try It", "visual": { "kind": "burst", "data": { "caption": "Live" } } }
+      ]
     }
   ]
 }

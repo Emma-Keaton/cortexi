@@ -26,7 +26,27 @@ export type VisualKind =
   /** A browser or phone chrome frame with UI elements animating inside. */
   | 'ui-frame'
   /** A real Lottie asset, seeked frame-accurately. */
-  | 'lottie';
+  | 'lottie'
+  /** Two/three conversation bubbles, one per move. */
+  | 'chat'
+  /** A single notification pill that drops in. */
+  | 'notify'
+  /** A bento grid of icons / tiles, one focal tile tinted. */
+  | 'icon-grid'
+  /** A central hub with connector lines to orbiting pills. */
+  | 'hub'
+  /** A word cloud sized by importance. */
+  | 'word-cloud'
+  /** A loose collage of photo tiles. */
+  | 'collage'
+  /** A marquee strip of logo tiles, gently alive. */
+  | 'logo-strip'
+  /** A single hero tile that lifts in and has a highlight sweep. */
+  | 'hero-shape'
+  /** A divider flourish: an expanding line with a rotating star. */
+  | 'burst'
+  /** An accent panel that slides in beside a list of bars. */
+  | 'split-panel';
 
 export interface SeriesPoint {
   label: string;
@@ -85,6 +105,23 @@ export interface VisualData {
   loop?: boolean;
   /** Recolor the asset toward the brand palette. */
   tint?: string;
+
+  // chat
+  bubbles?: { text: string; side?: 'left' | 'right' }[];
+
+  // word-cloud (falls back to `series` when omitted)
+  terms?: { text: string; weight?: number }[];
+
+  // icon-grid: Lucide icon names, one per tile.
+  cells?: string[];
+
+  // hub: pills orbiting a central node.
+  nodes?: { label: string; icon?: string }[];
+  /** Label for the hub's central node. */
+  center?: string;
+
+  // collage / logo-strip / split-panel: how many tiles / rows / bars.
+  count?: number;
 }
 
 export interface SceneVisual {

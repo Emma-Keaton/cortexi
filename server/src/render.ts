@@ -76,30 +76,44 @@ async function doRender(job: RenderJob, sb: Storyboard, quality: 'draft' | 'fina
     await mkdir(OUT_DIR, { recursive: true });
 
     const inputProps = { storyboard: sb, quality };
-    const composition = await selectComposition({
-      serveUrl,
-      id: 'CortexiVideo',
-      inputProps,
-    });
-
     const outFile = path.join(OUT_DIR, `${job.id}.mp4`);
-    const scaled = scaleForQuality(composition, quality);
-    await renderMedia({
-      composition: {
-        ...composition,
-        ...scaled,
-      },
-      serveUrl,
-      codec: 'h264',
-      outputLocation: outFile,
-      inputProps,
-      concurrency: 1, // 4GB RAM safety
-      timeoutInMilliseconds: 120000,
-      ...(BROWSER ? { browserExecutable: BROWSER } : {}),
-      onProgress: ({ progress }) => {
-        job.progress = Math.round(progress * 100);
-      },
-    });
+
+    const renderOnce = async () => {
+      const composition = await selectComposition({
+        serveUrl,
+        id: 'CortexiVideo',
+        inputProps,
+      });
+      const scaled = scaleForQuality(composition, quality);
+      await renderMedia({
+        composition: { ...composition, ...scaled },
+        serveUrl,
+        codec: 'h264',
+        outputLocation: outFile,
+        inputProps,
+        concurrency: 1, // 4GB RAM safety
+        timeoutInMilliseconds: 120000,
+        ...(BROWSER ? { browserExecutable: BROWSER } : {}),
+        onProgress: ({ progress }) => {
+          job.progress = Math.round(progress * 100);
+        },
+      });
+    };
+
+    // A cold Chrome/Chromium start can stall the first DevTools handshake past
+    // Remotion's connect timeout ("Failed to launch the browser" / "Timed out...
+    // trying to connect"). One retry after a short settle almost always
+    // succeeds; anything that still fails is a real error, not a warm-up.
+    try {
+      await renderOnce();
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? e);
+      const warmup = /browser|launch|connect|devtools|timed out/i.test(msg);
+      if (!warmup) throw e;
+      console.warn('[render] browser connect flake, retrying once:', msg);
+      await new Promise((r) => setTimeout(r, 3000));
+      await renderOnce();
+    }
 
     job.status = 'done';
     job.progress = 100;

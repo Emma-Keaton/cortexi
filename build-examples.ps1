@@ -13,7 +13,10 @@
 
 .EXAMPLE
   $env:CORTEXI_ENABLE_SERVER_RENDER='1'; pnpm dev; ./build-examples.ps1
+.EXAMPLE
+  Build only one concept: ./build-examples.ps1 -Slug momentum-motion
 #>
+param([string]$Slug = '')
 $ErrorActionPreference = 'Continue'
 $base    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $api     = 'http://localhost:8787'
@@ -43,7 +46,8 @@ $entrance = @{
 $bgModes = @('gradient', 'color', 'split', 'color')
 
 $concepts = (Get-Content $conceptsPath -Raw -Encoding utf8 | ConvertFrom-Json).concepts
-W ("loaded $($concepts.Count) concepts")
+if ($Slug) { $concepts = @($concepts | Where-Object { $_.slug -eq $Slug }); if (-not $concepts) { W ('no concept matches -Slug ' + $Slug); exit 1 } }
+W ("loaded $($concepts.Count) concepts" + $(if ($Slug) { ' (filtered: ' + $Slug + ')' } else { '' }))
 
 $i = 0
 foreach ($c in $concepts) {
@@ -82,6 +86,9 @@ foreach ($c in $concepts) {
         uppercase  = ($s.template -eq 'title-card')
       }
     }
+    # An explicit `visual` in the concept wins over the auto-filled one, so the
+    # gallery can showcase any specific composition kind.
+    if ($null -ne $s.visual) { $scenes[$scenes.Count - 1]['visual'] = $s.visual }
   }
 
     # Zod rejects explicit nulls, so drop empty optional fields before sending.

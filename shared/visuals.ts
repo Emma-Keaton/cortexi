@@ -714,6 +714,445 @@ function drawUiFrame(d: DrawContext, p: Palette, area: Rect) {
   ctx.restore();
 }
 
+/**
+ * Motion-graphics composition library.
+ *
+ * A second family of visuals alongside the infographics above: flat shapes,
+ * plain type, one move plus a slow drift. Ported clean-room from the idea of
+ * NullMotion's HyperFrames "beat kinds" (unlicensed, so nothing is copied) into
+ * this file's pure-function-of-time canvas model - the same one the browser and
+ * Remotion renderers share. Each drawer owns one composition and nothing else.
+ */
+
+function drawChat(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const bubbles = d.visual.data?.bubbles ?? [];
+  if (bubbles.length === 0) return;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+
+  const rows = Math.min(3, bubbles.length);
+  const bh = Math.min(area.h * 0.3, 110);
+  const gap = area.h * 0.1;
+  const top = area.y + (area.h - (bh + gap) * rows + gap) / 2;
+  const maxW = area.w * 0.72;
+  const fontSize = Math.round(bh * 0.32);
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  bubbles.slice(0, 3).forEach((b, i) => {
+    const right = (b.side ?? 'right') === 'right';
+    const g = clamp01(sample({ duration: DURATION.ui, delay: i * 220, ease: 'enter' }, t));
+    if (g <= 0.01) return;
+    ctx.font = `500 ${fontSize}px ${d.font}`;
+    const lines = wrap(ctx, b.text, maxW).slice(0, 2);
+    const bw = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + bh * 0.55);
+    const x = right ? area.x + area.w - bw : area.x;
+    const y = top + i * (bh + gap);
+    ctx.save();
+    ctx.globalAlpha *= g;
+    ctx.translate(0, (1 - g) * 14);
+    roundRect(ctx, x, y, bw, bh, bh * 0.34);
+    ctx.fillStyle = right ? p.accent : p.surface;
+    ctx.fill();
+    if (!right) { ctx.strokeStyle = p.line; ctx.lineWidth = 1.5; ctx.stroke(); }
+    const col = right ? p.onPrimary : p.ink;
+    lines.forEach((l, li) => text(ctx, l, x + bh * 0.28, y + bh * 0.4 + li * fontSize * 1.2, `500 ${fontSize}px ${d.font}`, col));
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function drawNotify(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const cap = d.visual.data?.caption;
+  const iconName = d.visual.data?.icon && ICONS[d.visual.data.icon] ? d.visual.data.icon : 'check';
+
+  const w = area.w * 0.9;
+  const h = Math.min(area.h * 0.5, 132);
+  const x = area.x + (area.w - w) / 2;
+  const y = area.y + area.h / 2 - h / 2;
+  const g = clamp01(sample({ duration: DURATION.hero, ease: 'enter' }, t));
+  if (g <= 0.01) return;
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out) * g;
+  ctx.translate(0, (1 - g) * -44);
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.fillStyle = p.surface;
+  ctx.fill();
+  ctx.strokeStyle = p.line;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  const chip = h * 0.5;
+  roundRect(ctx, x + h * 0.16, y + h * 0.25, chip, chip, chip * 0.28);
+  ctx.fillStyle = withAlpha(p.primary, 0.16);
+  ctx.fill();
+  drawIcon(ctx, iconName, x + h * 0.16 + chip / 2, y + h * 0.25 + chip / 2, chip * 0.55, p.primary, 1);
+  if (cap) text(ctx, cap, x + h * 0.16 + chip + h * 0.18, y + h / 2 + h * 0.1, `600 ${Math.round(h * 0.22)}px ${d.font}`, p.ink);
+  ctx.restore();
+}
+
+function drawIconGrid(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const cells = (d.visual.data?.cells ?? []).slice(0, 6);
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const n = cells.length || 4;
+  const cols = n <= 4 ? 2 : 3;
+  const gap = area.w * 0.06;
+  const tw = (area.w - gap * (cols - 1)) / cols;
+  const th = (area.h - gap * (Math.ceil(n / cols) - 1)) / Math.ceil(n / cols);
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const g = clamp01(sample({ duration: DURATION.ui, delay: i * 70, ease: 'enter' }, t));
+    if (g <= 0.01) continue;
+    const x = area.x + col * (tw + gap);
+    const y = area.y + row * (th + gap);
+    ctx.save();
+    ctx.globalAlpha *= g;
+    ctx.translate(x + tw / 2, y + th / 2);
+    ctx.scale(lerp(0.8, 1, g), lerp(0.8, 1, g));
+    roundRect(ctx, -tw / 2, -th / 2, tw, th, tw * 0.14);
+    ctx.fillStyle = i % 2 ? p.surface : mixHex(p.surface, p.primary, 0.1);
+    ctx.fill();
+    ctx.strokeStyle = withAlpha(p.primary, 0.35);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    const name = cells[i] && ICONS[cells[i]] ? cells[i] : ICON_ROTATION[i % ICON_ROTATION.length];
+    drawIcon(ctx, name, 0, 0, Math.min(tw, th) * 0.42, i === 0 ? p.primary : p.ink, 1);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawHub(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const nodes = (d.visual.data?.nodes ?? []).slice(0, 4);
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const cx = area.x + area.w / 2;
+  const cy = area.y + area.h / 2;
+  const coreR = Math.min(area.w, area.h) * 0.15;
+  const positions: Array<[number, number]> = [
+    [cx - area.w * 0.3, cy - area.h * 0.26],
+    [cx + area.w * 0.3, cy - area.h * 0.26],
+    [cx - area.w * 0.3, cy + area.h * 0.26],
+    [cx + area.w * 0.3, cy + area.h * 0.26],
+  ];
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  nodes.forEach((nd, i) => {
+    const [px, py] = positions[i] ?? [cx, cy];
+    const g = clamp01(sample({ duration: DURATION.ui, delay: 260 + i * 140, ease: 'enter' }, t));
+    if (g <= 0.01) return;
+    ctx.beginPath();
+    ctx.strokeStyle = withAlpha(p.primary, 0.35 * g);
+    ctx.lineWidth = 2;
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(lerp(cx, px, g), lerp(cy, py, g));
+    ctx.stroke();
+    const pw = area.w * 0.26;
+    const ph = Math.min(area.h * 0.2, 60);
+    ctx.save();
+    ctx.globalAlpha *= g;
+    ctx.translate(px, py);
+    roundRect(ctx, -pw / 2, -ph / 2, pw, ph, ph / 2);
+    ctx.fillStyle = p.surface;
+    ctx.fill();
+    ctx.strokeStyle = p.line;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (nd.icon && ICONS[nd.icon]) drawIcon(ctx, nd.icon, -pw / 2 + ph * 0.42, 0, ph * 0.5, p.primary, 1);
+    text(ctx, nd.label ?? '', nd.icon ? -pw / 2 + ph * 0.8 : 0, ph * 0.14, `600 ${Math.round(ph * 0.42)}px ${d.font}`, p.ink, nd.icon ? 'left' : 'center');
+    ctx.restore();
+  });
+  const cg = clamp01(sample(pop(0), t));
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR * lerp(0.6, 1, cg), 0, Math.PI * 2);
+  ctx.fillStyle = p.primary;
+  ctx.fill();
+  if (d.visual.data?.center) text(ctx, d.visual.data.center, cx, cy + coreR * 0.24, `700 ${Math.round(coreR * 0.46)}px ${d.font}`, p.onPrimary, 'center');
+  ctx.restore();
+}
+
+function drawWordCloud(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const terms = d.visual.data?.terms ?? d.visual.data?.series?.map((s) => ({ text: s.label, weight: s.value })) ?? [];
+  if (terms.length === 0) return;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const shown = terms.slice(0, 6);
+  const maxW = Math.max(...shown.map((x) => x.weight ?? 1), 1);
+  const cx = area.x + area.w / 2;
+  const cy = area.y + area.h / 2;
+  const rowH = area.h * 0.34;
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  shown.forEach((term, i) => {
+    const weight = (term.weight ?? 1) / maxW;
+    const size = lerp(area.h * 0.1, area.h * 0.28, weight);
+    const g = clamp01(sample({ duration: DURATION.ui, delay: i * 130, ease: 'enter' }, t));
+    if (g <= 0.01) return;
+    const x = cx + (i % 2 === 0 ? -area.w * 0.18 : area.w * 0.18);
+    const y = cy + (Math.floor(i / 2) - 1) * rowH;
+    ctx.save();
+    ctx.globalAlpha *= g;
+    ctx.translate(x, y + (1 - g) * 10);
+    ctx.font = `700 ${Math.round(size)}px ${d.font}`;
+    ctx.fillStyle = i === 0 ? p.primary : i % 2 ? p.muted : p.ink;
+    ctx.fillText(term.text, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function drawCollage(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const n = Math.min(d.visual.data?.count ?? 5, 5);
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const spots: Array<[number, number, number, number]> = [
+    [0.02, 0.02, 0.42, 0.44],
+    [0.56, 0.05, 0.42, 0.44],
+    [0.04, 0.5, 0.4, 0.46],
+    [0.5, 0.54, 0.24, 0.4],
+    [0.78, 0.5, 0.2, 0.44],
+  ];
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  for (let i = 0; i < n; i++) {
+    const [fx, fy, fw, fh] = spots[i];
+    const x = area.x + fx * area.w;
+    const y = area.y + fy * area.h;
+    const w = fw * area.w;
+    const h = fh * area.h;
+    const g = clamp01(sample({ duration: DURATION.hero, delay: i * 110, ease: 'enter' }, t));
+    if (g <= 0.01) continue;
+    ctx.save();
+    ctx.globalAlpha *= g;
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate((i % 2 ? -1 : 1) * 0.05 * g);
+    ctx.scale(lerp(0.85, 1, g), lerp(0.85, 1, g));
+    roundRect(ctx, -w / 2, -h / 2, w, h, 8);
+    ctx.fillStyle = i % 2 ? p.surface : mixHex(p.surface, p.primary, 0.14);
+    ctx.fill();
+    ctx.strokeStyle = p.line;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+  const cap = d.visual.data?.caption;
+  if (cap) {
+    const fade = clamp01(sample({ duration: DURATION.ui, delay: 320, ease: 'enter' }, t));
+    if (fade > 0.01) {
+      ctx.save();
+      ctx.globalAlpha *= fade;
+      const lines = wrap(ctx, cap, area.w * 0.9);
+      lines.forEach((l, i) => text(ctx, l, area.x + area.w / 2, area.y + area.h * 0.84 + i * 16, `600 ${Math.round(area.h * 0.06)}px ${d.font}`, p.muted, 'center'));
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+function drawLogoStrip(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const rows = Math.min(d.visual.data?.count ?? 3, 3);
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const perRow = 5;
+  const tileW = area.w * 0.22;
+  const tileH = Math.min(area.h * 0.22, 72);
+  const gapX = area.w * 0.14;
+  const step = tileW + gapX;
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  for (let r = 0; r < rows; r++) {
+    const fade = clamp01(sample({ duration: DURATION.ui, delay: r * 160, ease: 'enter' }, t));
+    if (fade <= 0.01) continue;
+    // A slow back-and-forth sway so the strip reads as alive without wrap math.
+    const phase = Math.sin((t / 6000) * Math.PI * 2 + (r % 2 ? Math.PI : 0));
+    const shift = phase * step * 0.4;
+    const y = area.y + r * (tileH + area.h * 0.16);
+    ctx.save();
+    ctx.globalAlpha *= fade;
+    for (let i = 0; i < perRow; i++) {
+      const baseX = area.x - (gapX + tileW) + i * step + shift;
+      roundRect(ctx, baseX, y, tileW, tileH, tileH * 0.16);
+      ctx.fillStyle = (i + r) % 3 ? p.surface : mixHex(p.surface, p.primary, 0.16);
+      ctx.fill();
+      ctx.strokeStyle = p.line;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      drawIcon(ctx, ICON_ROTATION[(i + r) % ICON_ROTATION.length], baseX + tileW / 2, y + tileH / 2, tileH * 0.46, (i + r) % 3 ? p.primary : p.ink, 0.92);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawHeroShape(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const cap = d.visual.data?.caption;
+  const size = Math.min(area.w, area.h) * 0.5;
+  const cx = cap ? area.x + area.w * 0.32 : area.x + area.w / 2;
+  const cy = area.y + area.h * 0.46;
+  const lift = clamp01(sample({ duration: DURATION.cinematic, ease: 'enter' }, t));
+  if (lift <= 0.01) return;
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  // Ground shadow grows in with the lift.
+  ctx.save();
+  ctx.translate(cx, cy + size * 0.62);
+  ctx.scale(1, 0.32);
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.5 * lerp(0.6, 1, lift), 0, Math.PI * 2);
+  ctx.fillStyle = withAlpha('#000000', 0.3 * lift);
+  ctx.fill();
+  ctx.restore();
+
+  // The tile lifts in with a slight settle, a highlight bar sweeps across once.
+  ctx.save();
+  ctx.globalAlpha *= clamp01(lift);
+  ctx.translate(cx, cy + (1 - lift) * -30);
+  ctx.transform(1, 0, lerp(-0.1, 0, lift), 1, 0, 0);
+  roundRect(ctx, -size / 2, -size / 2, size, size, size * 0.22);
+  ctx.fillStyle = p.surface;
+  ctx.fill();
+  ctx.strokeStyle = p.primary;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  roundRect(ctx, -size * 0.2, -size * 0.2, size * 0.4, size * 0.4, size * 0.12);
+  ctx.fillStyle = p.primary;
+  ctx.fill();
+  const shine = clamp01((t - 300) / 700);
+  if (shine > 0 && shine < 1) {
+    const sx = lerp(-size * 0.9, size * 0.9, shine);
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, -size / 2, -size / 2, size, size, size * 0.22);
+    ctx.clip();
+    const grad = ctx.createLinearGradient(sx - 30, 0, sx + 30, 0);
+    grad.addColorStop(0, withAlpha(p.bg, 0));
+    grad.addColorStop(0.5, withAlpha('#ffffff', 0.28 * (1 - shine)));
+    grad.addColorStop(1, withAlpha(p.bg, 0));
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - 40, -size / 2, 80, size);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  if (cap) {
+    const g = clamp01(sample({ duration: DURATION.ui, delay: 420, ease: 'enter' }, t));
+    if (g > 0.01) {
+      ctx.save();
+      ctx.globalAlpha *= g;
+      const lines = wrap(ctx, cap, area.w * 0.42);
+      lines.forEach((l, i) => text(ctx, l, cx + size * 0.72, cy - (lines.length - 1) * 12 + i * 24, `600 ${Math.round(area.h * 0.08)}px ${d.font}`, p.ink));
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+function drawBurst(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const cap = d.visual.data?.caption;
+  const cx = area.x + area.w / 2;
+  const cy = area.y + area.h / 2;
+  const lineGrow = clamp01(sample({ duration: DURATION.hero, ease: 'enter' }, t));
+  const star = clamp01(sample(pop(120), t));
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  const lw = area.w * 0.7 * lineGrow;
+  ctx.beginPath();
+  ctx.strokeStyle = withAlpha(p.primary, 0.85);
+  ctx.lineWidth = 3;
+  ctx.moveTo(cx - lw / 2, cy);
+  ctx.lineTo(cx + lw / 2, cy);
+  ctx.stroke();
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(star, star);
+  ctx.rotate(star * 0.4);
+  const s = area.h * 0.18;
+  for (const rot of [0, Math.PI / 4]) {
+    ctx.save();
+    ctx.rotate(rot);
+    roundRect(ctx, -s / 2, -s / 2, s, s, s * 0.16);
+    ctx.fillStyle = p.accent;
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  if (cap) {
+    const g = clamp01(sample({ duration: DURATION.ui, delay: 300, ease: 'enter' }, t));
+    if (g > 0.01) {
+      ctx.save();
+      ctx.globalAlpha *= g;
+      text(ctx, cap, cx, cy + area.h * 0.24, `700 ${Math.round(area.h * 0.12)}px ${d.font}`, p.ink, 'center');
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+function drawSplitPanel(d: DrawContext, p: Palette, area: Rect, fps: number) {
+  const { ctx, t } = d;
+  const out = exitAt(d.globalT, d.sceneDurationMs);
+  if (out <= 0) return;
+  const cap = d.visual.data?.caption;
+  const rows = Math.min(d.visual.data?.count ?? 5, 7);
+  const panelW = area.w * 0.42;
+
+  ctx.save();
+  ctx.globalAlpha = clamp01(out);
+  const pg = clamp01(sample({ duration: DURATION.hero, ease: 'enter' }, t));
+  ctx.save();
+  ctx.globalAlpha *= pg;
+  ctx.translate((1 - pg) * -panelW, 0);
+  roundRect(ctx, area.x, area.y, panelW, area.h, 12);
+  ctx.fillStyle = p.accent;
+  ctx.fill();
+  if (cap) {
+    const lines = wrap(ctx, cap, panelW * 0.7);
+    ctx.font = `700 ${Math.round(area.h * 0.11)}px ${d.font}`;
+    lines.forEach((l, i) => text(ctx, l, area.x + panelW * 0.14, area.y + area.h / 2 - (lines.length - 1) * area.h * 0.08 + i * area.h * 0.16, `700 ${Math.round(area.h * 0.11)}px ${d.font}`, p.onPrimary));
+  }
+  ctx.restore();
+
+  const bx = area.x + panelW + area.w * 0.12;
+  const bw = area.w - panelW - area.w * 0.12;
+  for (let i = 0; i < rows; i++) {
+    const bg = clamp01(sample({ duration: DURATION.ui, delay: 240 + i * 70, ease: 'enter' }, t));
+    if (bg <= 0.01) continue;
+    const w = (i % 3 === 0 ? 0.9 : i % 2 ? 0.62 : 0.75) * bw * bg;
+    roundRect(ctx, bx, area.y + i * (area.h / (rows + 1)), Math.max(3, w), area.h * 0.08, 4);
+    ctx.fillStyle = withAlpha(p.ink, 0.35);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 const DRAWERS: Record<string, (d: DrawContext, p: Palette, area: Rect, fps: number) => void> = {
   'stat-counter': (d, p, a) => drawStatCounter(d, p, a),
   'bar-chart': drawBarChart,
@@ -721,6 +1160,16 @@ const DRAWERS: Record<string, (d: DrawContext, p: Palette, area: Rect, fps: numb
   'step-flow': drawStepFlow,
   'line-chart': (d, p, a) => drawLineChart(d, p, a),
   'ui-frame': (d, p, a) => drawUiFrame(d, p, a),
+  'chat': (d, p, a, f) => drawChat(d, p, a, f),
+  'notify': (d, p, a, f) => drawNotify(d, p, a, f),
+  'icon-grid': (d, p, a, f) => drawIconGrid(d, p, a, f),
+  'hub': (d, p, a, f) => drawHub(d, p, a, f),
+  'word-cloud': (d, p, a, f) => drawWordCloud(d, p, a, f),
+  'collage': (d, p, a, f) => drawCollage(d, p, a, f),
+  'logo-strip': (d, p, a, f) => drawLogoStrip(d, p, a, f),
+  'hero-shape': (d, p, a, f) => drawHeroShape(d, p, a, f),
+  'burst': (d, p, a, f) => drawBurst(d, p, a, f),
+  'split-panel': (d, p, a, f) => drawSplitPanel(d, p, a, f),
 };
 
 export function visualKinds(): string[] {

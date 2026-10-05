@@ -72,6 +72,17 @@ export const RECIPES: Recipe[] = [
       'Direction: {mood}. Clean palette ({palette}), one idea per scene, numbered steps. Keep jargon out of the copy.\n\n' +
       'Voice: {voice}.',
   },
+  {
+    id: 'motion-graphics',
+    name: 'Motion graphics',
+    blurb: 'Flat shapes, one move, a slow drift - the rough-cut energy of a motion ad.',
+    tags: ['16:9', 'Motion', 'Flat'],
+    template:
+      'A {duration}-second motion-graphics spot for {brand}.\n\n' +
+      'Arc: open on the brand name. Then {beats} beats, each a single flat-shape move: a hero tile that lifts in, a set of icon tiles that cascade, a divider that lands a one-word punchline, a strip of partners that glides. One idea, one move, per beat.\n\n' +
+      'Direction: {mood}. Flat shapes and plain type on a {palette} field - no gradients, no noise, one accent colour doing all the work. Every shape enters once, then drifts slowly. Reserve the strongest move for the second or third beat.\n\n' +
+      'Voice: {voice}.',
+  },
 ];
 
 const FIELD_HELP: Array<[string, string]> = [

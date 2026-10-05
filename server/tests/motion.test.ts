@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { ease, spring, sample, SPRINGS, staggerFor, mixHex, parseHex, luminance, beatTimeline } from '../../shared/motion.js';
-import { formatValue, visualKinds, iconNames, ICON_ROTATION } from '../../shared/visuals.js';
+import { formatValue, visualKinds, iconNames, ICON_ROTATION, drawVisual } from '../../shared/visuals.js';
 import { classifyGenre, motionBrief, ICON_SET } from '../src/motionBrief.js';
 
 type Test = (name: string, fn: () => Promise<void> | void) => Promise<void>;
@@ -119,5 +119,48 @@ async function visualTests(test: Test): Promise<void> {
     for (const i of ICON_SET) assert.ok(brief.includes(i), 'brief omits icon: ' + i);
     assert.ok(brief.includes('NEVER invent data'), 'the honesty rule must be stated');
     assert.ok(brief.includes('Lucide'), 'the icon package must be named');
+  });
+  await test('every visual kind renders against a canvas without throwing', () => {
+    // A headless 2D-context stub: methods no-op, measureText/gradients behave,
+    // and property sets are swallowed. Path2D is not a Node global, so fake it.
+    class FakePath2D { constructor(_d?: unknown) {}
+      _r = 0;
+    }
+    (globalThis as any).Path2D = (globalThis as any).Path2D ?? FakePath2D;
+    const gradient = { addColorStop() {} };
+    const ctx: any = new Proxy(
+      {},
+      {
+        get(t, prop) {
+          if (prop === 'measureText') return () => ({ width: 8 });
+          if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+          if (prop in t) return (t as any)[prop];
+          return () => {};
+        },
+        set(t, prop, v) { (t as any)[prop] = v; return true; },
+      },
+    );
+    const base = { w: 1280, h: 720, sceneDurationMs: 6000, fps: 30, font: 'Inter, sans-serif', style: { primaryColor: '#7C3AED', backgroundColor: '#0A0A0E', textColor: '#FFFFFF' } } as any;
+    const samples: Array<[string, any]> = [
+      ['chat', { bubbles: [{ text: 'Hello there', side: 'right' }, { text: 'It just works', side: 'left' }] }],
+      ['notify', { caption: 'Your plan updated', icon: 'check' }],
+      ['icon-grid', { cells: ['zap', 'users', 'shield-check', 'rocket'] }],
+      ['hub', { center: 'Core', nodes: [{ label: 'API' }, { label: 'Web' }, { label: 'Mobile' }] }],
+      ['word-cloud', { terms: [{ text: 'Fast', weight: 5 }, { text: 'Local', weight: 3 }, { text: 'Open', weight: 2 }] }],
+      ['collage', { count: 5, caption: 'One shot, many uses' }],
+      ['logo-strip', { count: 2 }],
+      ['hero-shape', { caption: 'The one object' }],
+      ['burst', { caption: 'Live' }],
+      ['split-panel', { caption: 'Fast', count: 5 }],
+      // A couple of the originals, to prove they still render too.
+      ['stat-counter', { value: 12840, format: 'compact' }],
+      ['ui-frame', { chrome: 'browser', layout: 'dashboard' }],
+    ];
+    for (const [kind, data] of samples) {
+      for (const t of [0, 400, 3000, 6000]) {
+        const ok = drawVisual({ ctx, ...base, t, globalT: t, visual: { kind, data } } as any);
+        assert.ok(typeof ok === 'boolean', `${kind} @ t=${t} did not return a boolean`);
+      }
+    }
   });
 }

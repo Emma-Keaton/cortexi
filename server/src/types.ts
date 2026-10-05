@@ -27,7 +27,7 @@ export const SceneSchema = z.object({
    * either alone.
    */
   visual: z.object({
-    kind: z.enum(['none', 'stat-counter', 'bar-chart', 'line-chart', 'donut', 'step-flow', 'ui-frame', 'lottie']).default('none'),
+    kind: z.enum(['none', 'stat-counter', 'bar-chart', 'line-chart', 'donut', 'step-flow', 'ui-frame', 'lottie', 'chat', 'notify', 'icon-grid', 'hub', 'word-cloud', 'collage', 'logo-strip', 'hero-shape', 'burst', 'split-panel']).default('none'),
     data: z.object({
       value: z.number().optional(),
       format: z.enum(['plain', 'percent', 'currency', 'compact']).optional(),
@@ -50,6 +50,12 @@ export const SceneSchema = z.object({
       toSeconds: z.number().optional(),
       loop: z.boolean().optional(),
       tint: z.string().optional(),
+      bubbles: z.array(z.object({ text: z.string(), side: z.enum(['left', 'right']).optional() })).optional(),
+      terms: z.array(z.object({ text: z.string(), weight: z.number().optional() })).optional(),
+      cells: z.array(z.string()).optional(),
+      nodes: z.array(z.object({ label: z.string(), icon: z.string().optional() })).optional(),
+      center: z.string().optional(),
+      count: z.number().optional(),
     }).optional(),
     height: z.number().min(0.2).max(0.9).optional(),
     focusIndex: z.number().int().min(0).optional(),

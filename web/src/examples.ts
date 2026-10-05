@@ -60,4 +60,17 @@ export const EXAMPLES: Example[] = [
     superPrompt:
       'A 16-second square product spot for flagship wireless headphones, framed for social feeds. Open on a centered hero with the product name over a cool graphite split background. Then two technical beats with hard numbers set in large type: forty two hours of playback, and adaptive noise cancelling that reads the room eight hundred times a second. Close on a minimal centered call to action. Palette: engineered monochrome, near black on cool grey, with a single electric cyan accent. Voice: deep, confident and precise, the way an engineer explains their own work.',
   },
+  {
+    id: 'momentum-motion',
+    title: 'Momentum',
+    badge: 'Motion Graphics',
+    aspect: '16:9',
+    duration: '~24s',
+    videoSrc: '/examples/momentum-motion.webm',
+    videoFallbackSrc: '/examples/momentum-motion.mp4',
+    posterSrc: '/examples/momentum-motion.webp',
+    prompt: 'A 24-second motion-graphics spot: flat shapes, one move each, near-black with a single cyan accent',
+    superPrompt:
+      'A 24-second motion-graphics spot for Momentum, the flat-shape way to build a launch film. Open on a near-black title card reading "Momentum" with a single cyan accent rule. Then one flat move per scene: a hero tile that lifts into frame, a hub with three nodes routing through it, a gliding strip of partners, and a divider that lands the one word that matters. Palette: near-black field, electric cyan accent, white type, one accent doing all the work. Voice: fast and confident, like a director calling the last take.',
+  },
 ];
