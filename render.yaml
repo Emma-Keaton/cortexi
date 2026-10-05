@@ -45,12 +45,10 @@ services:
       - key: CORTEXI_WEB_ORIGIN
         sync: false
 
-      # --- Text-to-speech voices shown in the app. NOTE: edge-tts uses Microsoft's
-      #     consumer endpoint (ToS-grey for a public ad-supported product) - see report.
-      #     Clear EDGE_TTS_VOICES and rely on PIPER/KOKORO for a fully clean default. ---
+      # --- Text-to-speech: LOCAL ONLY (Piper default, Kokoro optional). No
+      #     Microsoft / edge-tts. Piper voices are baked into the image (offline).
+      #     Kokoro's model fetches on first use, so it needs HF reachable. ---
       - key: PIPER_VOICES
         value: "en_US-amy-medium,en_US-ryan-medium,en_GB-alan-medium,en_GB-jenny-diode"
       - key: KOKORO_VOICES
         value: "af_heart,af_bella,am_michael,bf_emma,bm_george,af_nicole,am_adam,bf_isabella,bm_fable,af_sarah,am_musk"
-      - key: EDGE_TTS_VOICES
-        value: "en-US-AriaNeural,en-US-GuyNeural,en-US-JennyNeural,en-GB-SoniaNeural,en-AU-NatashaNeural,en-IN-NeerjaNeural"

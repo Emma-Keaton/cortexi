@@ -883,9 +883,8 @@ export default function App() {
                     value={sb.voice.engine}
                     onChange={(e) => setSb({ ...sb, voice: { ...sb.voice, engine: e.target.value } })}
                   >
-                    <option value="piper">Piper (ONNX, fastest + lightest)</option>
-                     <option value="kokoro">Kokoro-82M</option>
-                     <option value="edge-tts">Microsoft Neural Voices (Edge-TTS)</option>
+                    <option value="piper">Piper (local, offline - default)</option>
+                     <option value="kokoro">Kokoro-82M (local, higher quality)</option>
                     <option value="none">Mute / No Voiceover</option>
                   </select>
 

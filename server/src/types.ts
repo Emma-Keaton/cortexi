@@ -77,7 +77,7 @@ export const StoryboardSchema = z.object({
     font: z.string().default('Inter, Arial, sans-serif'),
   }),
   voice: z.object({
-    engine: z.enum(['piper', 'kokoro', 'edge-tts', 'upload', 'none']).default('piper'),
+    engine: z.enum(['piper', 'kokoro', 'upload', 'none']).default('piper'),
     voice: z.string().min(1).default('none'),
   }),
   music: z

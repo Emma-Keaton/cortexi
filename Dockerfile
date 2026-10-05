@@ -1,16 +1,15 @@
 # Cortexi — Docker build (Linux)
 FROM node:22-bookworm-slim
 
-# TTS stack:
-#   piper-tts   - lightweight ONNX voices, no PyTorch (default engine)
-#   kokoro      - higher-quality neural voices, pulls in PyTorch
-#   edge-tts    - Microsoft neural voices + accurate VTT word timings
+# TTS stack (all local, no Microsoft dependency):
+#   piper-tts   - lightweight ONNX voices, baked at build time, offline (default engine)
+#   kokoro      - higher-quality neural voices (pulls in PyTorch; model fetched on first use)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg chromium fonts-liberation fonts-noto-color-emoji \
       python3 python3-pip ca-certificates curl espeak-ng \
  && rm -rf /var/lib/apt/lists/* \
  && pip3 install --no-cache-dir --break-system-packages \
-      edge-tts piper-tts soundfile numpy \
+      piper-tts soundfile numpy \
  && pip3 install --no-cache-dir --break-system-packages 'kokoro>=0.9,<1' 'misaki[en]'
 
 # Piper voice models are baked into the image so synthesis needs no downloads at runtime.

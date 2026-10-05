@@ -1,9 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Storyboard } from './types.js';
-import { parseVtt } from './vtt.js';
 import { ASSETS_DIR, AUDIO_DIR } from './paths.js';
 
 const run = promisify(execFile);
@@ -19,10 +18,17 @@ export async function probeDuration(file: string): Promise<number> {
   return parseFloat(stdout.trim());
 }
 
-/** Generate per-scene voiceover with Kokoro; fills audioFile, words, durationSec. */
+/**
+ * Generate per-scene voiceover with a LOCAL engine (Piper default, Kokoro
+ * optional); fills audioFile, words, durationSec. Microsoft edge-tts was
+ * dropped on purpose - its consumer endpoint is ToS-grey for a public,
+ * ad-supported product - so synthesis runs entirely on the backend.
+ */
 export async function generateVoiceover(sb: Storyboard): Promise<Storyboard> {
-  if (sb.voice.engine === 'none') {
-    // Give scenes sensible default durations based on text length.
+  const engine = sb.voice.engine;
+  // Anything that is not a local synth engine (none, upload, legacy values)
+  // gets data-driven durations instead of generated audio.
+  if (engine !== 'piper' && engine !== 'kokoro') {
     sb.scenes = sb.scenes.map((s) => ({
       ...s,
       durationSec: s.durationSec ?? Math.max(2.5, ((s.headline + ' ' + (s.body ?? '')).split(' ').length / 2.5)),
@@ -30,45 +36,28 @@ export async function generateVoiceover(sb: Storyboard): Promise<Storyboard> {
     return sb;
   }
   await mkdir(AUDIO_DIR, { recursive: true });
+  const isKokoro = engine === 'kokoro';
+  const script = path.resolve(process.cwd(), `server/scripts/${isKokoro ? 'kokoro' : 'piper'}_tts.py`);
   const scenes = [] as Storyboard['scenes'];
   for (const scene of sb.scenes) {
     const text = [scene.headline, scene.body].filter(Boolean).join('. ');
     const mp3 = path.join(AUDIO_DIR, `${scene.id}.mp3`);
-    const vtt = path.join(AUDIO_DIR, `${scene.id}.vtt`);
     try {
-      if (sb.voice.engine === 'edge-tts') {
-        await run('edge-tts', ['--voice', sb.voice.voice, '--text', text, '--write-media', mp3, '--write-subtitles', vtt]);
+      // Piper emits WAV (ffmpeg to MP3); Kokoro emits MP3 directly.
+      if (isKokoro) {
+        await run('python', [script, text, sb.voice.voice, mp3]);
       } else {
-        // Piper/Kokoro emit WAV; convert to MP3 so every engine yields the same asset type.
         const wav = mp3.replace(/\.mp3$/, '.wav');
-        const isKokoro = sb.voice.engine === 'kokoro';
-        const script = path.resolve(process.cwd(), `server/scripts/${isKokoro ? 'kokoro' : 'piper'}_tts.py`);
-        if (isKokoro) {
-          await run('python', [script, text, sb.voice.voice, mp3]);
-        } else {
-          await run('python', [script, text, sb.voice.voice, wav]);
-          await run('ffmpeg', ['-y', '-i', wav, '-codec:a', 'libmp3lame', '-q:a', '4', mp3]);
-        }
-        const durationSec = await probeDuration(mp3);
-        const tokens = text.split(/\s+/).filter(Boolean);
-        const words = tokens.map((word, i) => ({ word, start: (i / tokens.length) * durationSec, end: ((i + 1) / tokens.length) * durationSec }));
-        scenes.push({ ...scene, audioFile: `audio/${scene.id}.mp3`, durationSec: Math.max(1.5, durationSec + 0.3), words });
-        continue;
+        await run('python', [script, text, sb.voice.voice, wav]);
+        await run('ffmpeg', ['-y', '-i', wav, '-codec:a', 'libmp3lame', '-q:a', '4', mp3]);
       }
-      const words = parseVtt(await readFile(vtt, 'utf-8'));
       const durationSec = await probeDuration(mp3);
-      scenes.push({
-        ...scene,
-        audioFile: `audio/${scene.id}.mp3`,
-        durationSec: Math.max(1.5, durationSec + 0.3),
-        words,
-      });
+      const tokens = text.split(/\s+/).filter(Boolean);
+      const words = tokens.map((word, i) => ({ word, start: (i / tokens.length) * durationSec, end: ((i + 1) / tokens.length) * durationSec }));
+      scenes.push({ ...scene, audioFile: `audio/${scene.id}.mp3`, durationSec: Math.max(1.5, durationSec + 0.3), words });
     } catch (e) {
       console.warn(`[tts] scene ${scene.id} failed:`, (e as Error).message);
-      scenes.push({
-        ...scene,
-        durationSec: Math.max(2.5, text.split(' ').length / 2.5),
-      });
+      scenes.push({ ...scene, durationSec: Math.max(2.5, text.split(' ').length / 2.5) });
     }
   }
   return { ...sb, scenes };

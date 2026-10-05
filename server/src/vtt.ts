@@ -1,6 +1,6 @@
 import type { WordTiming } from './types.js';
 
-/** Parse a WebVTT subtitle file (edge-tts emits word-level cues) into word timings. */
+/** Parse a WebVTT subtitle file into per-word timings (kept for tests; local engines estimate timings instead). */
 export function parseVtt(vtt: string): WordTiming[] {
   const words: WordTiming[] = [];
   const blocks = vtt.split(/\r?\n\r?\n/);

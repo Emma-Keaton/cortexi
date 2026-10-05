@@ -66,13 +66,11 @@ app.get('/api/voices', (c) => {
   const list = (raw?: string) => (raw ?? '').split(',').map((v) => v.trim()).filter(Boolean);
   const piper = list(process.env.PIPER_VOICES);
   const kokoro = list(process.env.KOKORO_VOICES);
-  const edge = list(process.env.EDGE_TTS_VOICES ?? 'en-US-AriaNeural,en-US-GuyNeural,en-US-JennyNeural,en-GB-SoniaNeural,en-AU-NatashaNeural,en-IN-NeerjaNeural');
   const combined = [
     ...piper.map((id) => ({ engine: 'piper', id })),
     ...kokoro.map((id) => ({ engine: 'kokoro', id })),
-    ...edge.map((id) => ({ engine: 'edge-tts', id })),
   ];
-  return c.json({ piper, kokoro, edge, combined });
+  return c.json({ piper, kokoro, combined });
 });
 
 // ---- Brand assets -------------------------------------------------------------
@@ -298,7 +296,6 @@ async function startupTasks() {
   // Dependency self-check (warnings only, actionable messages).
   const checks: [string, Promise<any>][] = [
     ['ffprobe', execFileP('ffprobe', ['-version'])],
-    ['edge-tts', execFileP('edge-tts', ['--version'])],
   ];
   for (const [name, p] of checks) {
     try { await p; } catch {
