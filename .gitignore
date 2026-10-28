@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+.venv*/
+.venv-kokoro/
 
 # Build output
 web/dist/
@@ -41,3 +43,6 @@ examples-build.log
 server-examples.log
 add.log
 assets/brand-assets.json
+
+# Reference repos (clean-room study only, never shipped)
+reference/

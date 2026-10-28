@@ -1,0 +1,6 @@
+{
+  "name": "Cortexi - AI Video Synthesis & StykAnimate Workstation",
+  "description": "Local-first AI video synthesis workstation with StykAnimate IK rigging, infographics, hyperframes, and neural voiceover.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
